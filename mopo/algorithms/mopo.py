@@ -458,6 +458,22 @@ class MOPO(RLAlgorithm):
         ## set env state
         env.unwrapped.set_state(qpos, qvel)
 
+    def _do_training_repeats(self, timestep):
+        """Repeat training _n_train_repeat times every _train_every_n_steps"""
+        if timestep % self._train_every_n_steps > 0: return
+        trained_enough = (
+                self._train_steps_this_epoch
+                > self._max_train_repeat_per_timestep * self._timestep)
+        if trained_enough: return
+
+        for i in range(self._n_train_repeat):
+            self._do_training(
+                iteration=timestep,
+                batch=self._training_batch())
+
+        self._num_train_steps += self._n_train_repeat
+        self._train_steps_this_epoch += self._n_train_repeat
+
     def _training_batch(self, batch_size=None):
         batch_size = batch_size or self.sampler._batch_size
         env_batch_size = int(batch_size*self._real_ratio)
