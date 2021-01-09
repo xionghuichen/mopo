@@ -121,3 +121,10 @@ vendor/*
 .mujoco/
 .vscode/
 .DS_Store
+
+code/**
+checkpoint/**
+models/**
+results/**
+archive_tester/**
+log/**

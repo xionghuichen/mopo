@@ -23,7 +23,7 @@ from mopo.utils.visualization import visualize_policy
 from mopo.utils.logging import Progress
 import mopo.utils.filesystem as filesystem
 import mopo.off_policy.loader as loader
-
+from RLA.easy_log.tester import tester
 
 def td_target(reward, discount, next_value):
     return reward + discount * next_value
@@ -82,8 +82,7 @@ class MOPO(RLAlgorithm):
             model_load_dir=None,
             penalty_coeff=0.,
             penalty_learned_var=False,
-            **kwargs,
-    ):
+            **kwargs):
         """
         Args:
             env (`SoftlearningEnv`): Environment used for training.
@@ -131,7 +130,8 @@ class MOPO(RLAlgorithm):
         self._rollout_random = rollout_random
         self._real_ratio = real_ratio
 
-        self._log_dir = os.getcwd()
+        # self._log_dir = os.getcwd()
+        self._log_dir = tester.log_dir
         self._writer = Writer(self._log_dir)
 
         self._training_environment = training_environment
@@ -207,8 +207,8 @@ class MOPO(RLAlgorithm):
         pool = self._pool
         model_metrics = {}
 
-        if not self._training_started:
-            self._init_training()
+        # if not self._training_started:
+        self._init_training()
 
         self.sampler.initialize(training_environment, policy, pool)
 
@@ -216,21 +216,22 @@ class MOPO(RLAlgorithm):
         gt.rename_root('RLAlgorithm')
         gt.set_def_unique(False)
 
-        self._training_before_hook()
+        # self._training_before_hook()
 
         #### model training
         print('[ MOPO ] log_dir: {} | ratio: {}'.format(self._log_dir, self._real_ratio))
         print('[ MOPO ] Training model at epoch {} | freq {} | timestep {} (total: {})'.format(
             self._epoch, self._model_train_freq, self._timestep, self._total_timestep)
         )
-
+        # train dynamics model offline
         max_epochs = 1 if self._model.model_loaded else None
         model_train_metrics = self._train_model(batch_size=256, max_epochs=max_epochs, holdout_ratio=0.2, max_t=self._max_model_t)
+
         model_metrics.update(model_train_metrics)
         self._log_model()
         gt.stamp('epoch_train_model')
         #### 
-
+        tester.time_step_holder.set_time(0)
         for self._epoch in gt.timed_for(range(self._epoch, self._n_epochs)):
 
             self._epoch_before_hook()
@@ -295,19 +296,19 @@ class MOPO(RLAlgorithm):
 
             diagnostics.update(OrderedDict((
                 *(
-                    (f'evaluation/{key}', evaluation_metrics[key])
+                    ('evaluation/{}'.format(key), evaluation_metrics[key])
                     for key in sorted(evaluation_metrics.keys())
                 ),
                 *(
-                    (f'times/{key}', time_diagnostics[key][-1])
+                    ('times/{}'.format(key), time_diagnostics[key][-1])
                     for key in sorted(time_diagnostics.keys())
                 ),
                 *(
-                    (f'sampler/{key}', sampler_diagnostics[key])
+                    ('sampler/{}'.format(key), sampler_diagnostics[key])
                     for key in sorted(sampler_diagnostics.keys())
                 ),
                 *(
-                    (f'model/{key}', model_metrics[key])
+                    ('model/{}'.format(key), model_metrics[key])
                     for key in sorted(model_metrics.keys())
                 ),
                 ('epoch', self._epoch),
@@ -771,7 +772,7 @@ class MOPO(RLAlgorithm):
         policy_diagnostics = self._policy.get_diagnostics(
             batch['observations'])
         diagnostics.update({
-            f'policy/{key}': value
+            'policy/{}'.format(key): value
             for key, value in policy_diagnostics.items()
         })
 
@@ -785,7 +786,7 @@ class MOPO(RLAlgorithm):
         saveables = {
             '_policy_optimizer': self._policy_optimizer,
             **{
-                f'Q_optimizer_{i}': optimizer
+                'Q_optimizer_{}'.format(i): optimizer
                 for i, optimizer in enumerate(self._Q_optimizers)
             },
             '_log_alpha': self._log_alpha,

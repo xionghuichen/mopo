@@ -4,21 +4,25 @@ import numpy as np
 import tensorflow as tf
 
 from mopo.models.constructor import construct_model, format_samples_for_training
-
+from RLA.easy_log.tester import tester
 
 def model_name(args):
-    name = f'{args.env}-{args.quality}'
+    name = "{}-{}".format(args.env, args.quality)
     if args.separate_mean_var:
         name += '_smv'
-    name += f'_{args.seed}'
+    name += '_{}'.format(args.seed)
     return name
 
 
 def main(args):
     np.random.seed(args.seed)
     tf.set_random_seed(args.seed)
+    tester.configure(task_name='model_learn', private_config_path='../../rla_config.yaml',
+                     run_file='train_model_offline.py', log_root='../../')
+    tester.log_files_gen()
+    tester.print_args()
 
-    env = gym.make(f'{args.env}-{args.quality}-v0')
+    env = gym.make('{}-{}-v0'.format(args.env, args.quality))
     dataset = env.get_dataset()
     obs_dim = dataset['observations'].shape[1]
     act_dim = dataset['actions'].shape[1]
@@ -38,18 +42,28 @@ def main(args):
 
 if __name__ == '__main__':
     from argparse import ArgumentParser
+    import os
+    os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'
     parser = ArgumentParser()
-    parser.add_argument('--env', required=True)
-    parser.add_argument('--quality', required=True)
+    parser.add_argument('--env', default="halfcheetah")
+    parser.add_argument('--quality', default="medium-replay")
+    parser.add_argument('--info', default="")
     parser.add_argument('--seed', default=1, type=int)
     parser.add_argument('--model-type', default='mlp')
     parser.add_argument('--separate-mean-var', action='store_true')
-    parser.add_argument('--num-networks', default=7, type=int)
+    parser.add_argument('--num-networks', default=30, type=int)
     parser.add_argument('--num-elites', default=5, type=int)
     parser.add_argument('--hidden-dim', default=200, type=int)
     parser.add_argument('--batch-size', default=256, type=int)
     parser.add_argument('--holdout-ratio', default=0.2, type=float)
     parser.add_argument('--max-epochs', default=None, type=int)
-    parser.add_argument('--max-t', default=None, type=float)
-    parser.add_argument('--model-dir', default='/tiger/u/gwthomas/d4rl/models')
+    parser.add_argument('--max-t', default=1e10, type=float)
+    parser.add_argument('--model-dir', default='../../models')
+    args = parser.parse_args()
+    kwargs = vars(args)
+    tester.set_hyper_param(**kwargs)
+    tester.add_record_param(['info',
+                             "seed",
+                             "env",
+                             "quality" ])
     main(parser.parse_args())

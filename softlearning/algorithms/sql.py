@@ -52,8 +52,7 @@ class SQL(RLAlgorithm):
             save_full_state=False,
             train_Q=True,
             train_policy=True,
-            **kwargs,
-    ):
+            **kwargs):
         """
         Args:
             env (`SoftlearningEnv`): Environment object used for training.
@@ -416,7 +415,7 @@ class SQL(RLAlgorithm):
 
         policy_diagnostics = self._policy.get_diagnostics(batch['observations'])
         diagnostics.update({
-            f'policy/{key}': value
+            'policy/{}'.format(key): value
             for key, value in policy_diagnostics.items()
         })
 
@@ -450,8 +449,7 @@ class SQL(RLAlgorithm):
     def tf_saveables(self):
         return {
             '_policy_optimizer': self._policy_optimizer,
-            **{
-                f'Q_optimizer_{i}': optimizer
+            **{'Q_optimizer_{}'.format(i): optimizer
                 for i, optimizer in enumerate(self._Q_optimizers)
             },
         }

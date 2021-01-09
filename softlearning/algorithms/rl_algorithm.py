@@ -221,19 +221,19 @@ class RLAlgorithm(tf.contrib.checkpoint.Checkpointable):
 
             diagnostics.update(OrderedDict((
                 *(
-                    (f'evaluation/{key}', evaluation_metrics[key])
+                    ('evaluation/{}'.format(key), evaluation_metrics[key])
                     for key in sorted(evaluation_metrics.keys())
                 ),
                 *(
-                    (f'training/{key}', training_metrics[key])
+                    ('training/{}'.format(key), training_metrics[key])
                     for key in sorted(training_metrics.keys())
                 ),
                 *(
-                    (f'times/{key}', time_diagnostics[key][-1])
+                    ('times/{}'.format(key), time_diagnostics[key][-1])
                     for key in sorted(time_diagnostics.keys())
                 ),
                 *(
-                    (f'sampler/{key}', sampler_diagnostics[key])
+                    ('sampler/{}'.format(key), sampler_diagnostics[key])
                     for key in sorted(sampler_diagnostics.keys())
                 ),
                 ('epoch', self._epoch),
@@ -274,7 +274,7 @@ class RLAlgorithm(tf.contrib.checkpoint.Checkpointable):
         if should_save_video:
             for i, path in enumerate(paths):
                 video_frames = path.pop('images')
-                video_file_name = f'evaluation_path_{self._epoch}_{i}.avi'
+                video_file_name = 'evaluation_path_{}_{}.avi'.format(self._epoch, i)
                 video_file_path = os.path.join(
                     os.getcwd(), 'videos', video_file_name)
                 save_video(video_frames, video_file_path)
@@ -300,7 +300,7 @@ class RLAlgorithm(tf.contrib.checkpoint.Checkpointable):
 
         env_infos = env.get_path_infos(paths)
         for key, value in env_infos.items():
-            diagnostics[f'env_infos/{key}'] = value
+            diagnostics['env_infos/{}'.format(key)] = value
 
         return diagnostics
 

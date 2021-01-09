@@ -122,7 +122,6 @@ class TensorStandardScaler:
 
     def load_cache(self):
         """Loads values from the cache
-
         Returns: None.
         """
         self.mu.load(self.cached_mu)

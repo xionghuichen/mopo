@@ -4,7 +4,6 @@ import numpy as np
 import copy
 import gym
 from gym import spaces, wrappers
-import d4rl
 
 from .softlearning_env import SoftlearningEnv
 from softlearning.environments.gym import register_environments
@@ -61,12 +60,11 @@ class GymAdapter(SoftlearningEnv):
         self.observation_keys = observation_keys
         self.unwrap_time_limit = unwrap_time_limit
 
-        self._Serializable__initialize(locals())
         super(GymAdapter, self).__init__(domain, task, *args, **kwargs)
 
         if env is None:
             assert (domain is not None and task is not None), (domain, task)
-            env_id = f"{domain}-{task}"
+            env_id = "{}-{}".format(domain, task)
             env = gym.envs.make(env_id, **kwargs)
         else:
             assert domain is None and task is None, (domain, task)

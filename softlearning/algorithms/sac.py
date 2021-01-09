@@ -44,8 +44,7 @@ class SAC(RLAlgorithm):
             store_extra_policy_info=False,
 
             save_full_state=False,
-            **kwargs,
-    ):
+            **kwargs):
         """
         Args:
             env (`SoftlearningEnv`): Environment used for training.
@@ -402,7 +401,7 @@ class SAC(RLAlgorithm):
         policy_diagnostics = self._policy.get_diagnostics(
             batch['observations'])
         diagnostics.update({
-            f'policy/{key}': value
+            'policy/{}'.format(key): value
             for key, value in policy_diagnostics.items()
         })
 
@@ -416,7 +415,7 @@ class SAC(RLAlgorithm):
         saveables = {
             '_policy_optimizer': self._policy_optimizer,
             **{
-                f'Q_optimizer_{i}': optimizer
+                'Q_optimizer_{}'.format(i): optimizer
                 for i, optimizer in enumerate(self._Q_optimizers)
             },
             '_log_alpha': self._log_alpha,

@@ -17,7 +17,8 @@ from mopo.models.utils import get_required_argument, TensorStandardScaler
 from mopo.models.fc import FC
 
 from mopo.utils.logging import Progress, Silent
-
+from RLA.easy_log import logger
+from RLA.easy_log.tester import tester
 np.set_printoptions(precision=5)
 
 
@@ -46,9 +47,9 @@ class BNN:
 
         print('[ BNN ] Initializing model: {} | {} networks | {} elites'.format(params['name'], params['num_networks'], params['num_elites']))
         if params.get('sess', None) is None:
-            config = tf.ConfigProto()
-            # config.gpu_options.allow_growth = True
-            self._sess = tf.Session(config=config)
+            gpu_options = tf.GPUOptions(allow_growth=True)
+            tf_config = tf.ConfigProto(allow_soft_placement=True, gpu_options=gpu_options)
+            self._sess = tf.Session(config=tf_config)
         else:
             self._sess = params.get('sess')
 
@@ -419,6 +420,7 @@ class BNN:
         t0 = time.time()
         grad_updates = 0
         for epoch in epoch_iter:
+            tester.time_step_holder.set_time(epoch)
             for batch_num in range(int(np.ceil(idxs.shape[-1] / batch_size))):
                 batch_idxs = idxs[:, batch_num * batch_size:(batch_num + 1) * batch_size]
                 self.sess.run(
@@ -455,11 +457,17 @@ class BNN:
                             }
                         )
                     named_losses = [['M{}'.format(i), losses[i]] for i in range(len(losses))]
+                    for i in range(len(losses)):
+                        logger.ma_record_tabular("M/{}".format(i), losses[i], 100)
+                        logger.ma_record_tabular("V/{}".format(i), holdout_losses[i], 100)
+
                     named_holdout_losses = [['V{}'.format(i), holdout_losses[i]] for i in range(len(holdout_losses))]
                     named_losses = named_losses + named_holdout_losses + [['T', time.time() - t0]]
                     progress.set_description(named_losses)
 
                     break_train = self._save_best(epoch, holdout_losses)
+            if epoch % 10 == 0:
+                logger.dump_tabular()
 
             progress.update()
             t = time.time() - t0

@@ -5,13 +5,13 @@ import pdb
 
 
 def import_fns(path, file, fns_name='StaticFns'):
-	full_path = os.path.join(path, file)
+	full_path = os.path.join("mopo/static", file)
 	import_path = full_path.replace('/', '.')
 	module = importlib.import_module(import_path)
 	fns = getattr(module, fns_name)
 	return fns
 
-cwd = 'mopo/static'
+cwd = '../mopo/static'
 files = os.listdir(cwd)
 ## remove __init__.py
 files = filter(lambda x: '__' not in x and x[0] != '.', files)

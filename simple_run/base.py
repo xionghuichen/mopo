@@ -1,4 +1,4 @@
-from ray import tune
+
 import numpy as np
 import pdb
 
@@ -61,7 +61,7 @@ ALGORITHM_PARAMS_ADDITIONAL = {
             'policy_lr': 3e-4,
             'target_update_interval': 1,
             'n_initial_exploration_steps': int(1e3),
-            'reward_scale': tune.sample_from(lambda spec: (
+            'reward_scale': lambda spec: (
                 {
                     'Swimmer': 30,
                     'Hopper': 30,
@@ -73,13 +73,10 @@ ALGORITHM_PARAMS_ADDITIONAL = {
                     'Humanoid': 100,
                     'Pendulum': 1,
                 }.get(
-                    spec.get('config', spec)
-                    ['environment_params']
-                    ['training']
-                    ['domain'],
+                    spec['environment_params']['training']['domain'],
                     1.0
                 ),
-            )),
+            ),
         }
     },
     'MVE': {
@@ -239,11 +236,8 @@ def get_variant_spec_base(universe, domain, task, policy, algorithm, env_params)
                 'kwargs': (
                     ENVIRONMENT_PARAMS.get(domain, {}).get(task, {})),
             },
-            'evaluation': tune.sample_from(lambda spec: (
-                spec.get('config', spec)
-                ['environment_params']
-                ['training']
-            )),
+            'evaluation': lambda spec: (
+                spec['environment_params']['training']),
         },
         'policy_params': deep_update(
             POLICY_PARAMS_BASE[policy],
@@ -259,16 +253,12 @@ def get_variant_spec_base(universe, domain, task, policy, algorithm, env_params)
         'replay_pool_params': {
             'type': 'SimpleReplayPool',
             'kwargs': {
-                'max_size': tune.sample_from(lambda spec: (
+                'max_size': lambda spec: (
                     {
                         'SimpleReplayPool': int(1e6),
                         'TrajectoryReplayPool': int(1e4),
-                    }.get(
-                        spec.get('config', spec)
-                        ['replay_pool_params']
-                        ['type'],
-                        int(1e6))
-                )),
+                    }.get(spec['replay_pool_params']['type'], int(1e6))
+                ),
             }
         },
         'sampler_params': {
@@ -282,8 +272,7 @@ def get_variant_spec_base(universe, domain, task, policy, algorithm, env_params)
             }
         },
         'run_params': {
-            'seed': tune.sample_from(
-                lambda spec: np.random.randint(0, 10000)),
+            'seed': 88,
             'checkpoint_at_end': True,
             'checkpoint_frequency': NUM_EPOCHS_PER_DOMAIN.get(
                 domain, DEFAULT_NUM_EPOCHS) // NUM_CHECKPOINTS,
