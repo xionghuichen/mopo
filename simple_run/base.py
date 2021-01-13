@@ -41,7 +41,7 @@ MAX_PATH_LENGTH_PER_DOMAIN = {
     'Point2DWallEnv': 50,
     'Pendulum': 200,
 }
-
+import tensorflow as tf
 ALGORITHM_PARAMS_ADDITIONAL = {
     'MOPO': {
         'type': 'MOPO',
@@ -53,6 +53,13 @@ ALGORITHM_PARAMS_ADDITIONAL = {
             'store_extra_policy_info': False,
             'action_prior': 'uniform',
             'n_initial_exploration_steps': int(5000),
+            "model_load_dir": "../models/",
+            "num_networks": 100,
+            "network_kwargs": {
+                "hidden_sizes": [256, 256],
+                "activation": tf.nn.relu,
+                "output_activation": None,
+            }
         }
     },
     'SQL': {
@@ -288,6 +295,5 @@ def get_variant_spec(args, env_params):
         universe, domain, task, args.policy, env_params.type, env_params)
 
     if args.checkpoint_replay_pool is not None:
-        variant_spec['run_params']['checkpoint_replay_pool'] = (
-            args.checkpoint_replay_pool)
+        variant_spec['run_params']['checkpoint_replay_pool'] = (args.checkpoint_replay_pool)
     return variant_spec

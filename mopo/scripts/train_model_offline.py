@@ -50,7 +50,7 @@ if __name__ == '__main__':
     parser.add_argument('--info', default="")
     parser.add_argument('--seed', default=1, type=int)
     parser.add_argument('--model-type', default='mlp')
-    parser.add_argument('--separate-mean-var', action='store_true')
+    parser.add_argument('--separate-mean-var', action='store_false')
     parser.add_argument('--num-networks', default=30, type=int)
     parser.add_argument('--num-elites', default=5, type=int)
     parser.add_argument('--hidden-dim', default=200, type=int)

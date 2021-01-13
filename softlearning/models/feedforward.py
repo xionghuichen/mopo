@@ -43,3 +43,4 @@ def feedforward_model(input_shapes,
     model = PicklableKerasModel(inputs, out, name=name)
 
     return model
+

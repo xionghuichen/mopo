@@ -40,9 +40,7 @@ def get_policy_from_variant(variant, env, Qs, *args, **kwargs):
     preprocessor_params = policy_kwargs.pop('preprocessor_params', None)
     preprocessor = get_preprocessor_from_params(env, preprocessor_params)
 
-    policy = POLICY_FUNCTIONS[policy_type](
-        env,
-        *args,
+    policy = POLICY_FUNCTIONS[policy_type](env, *args,
         Q=Qs[0],
         preprocessor=preprocessor,
         **policy_kwargs,

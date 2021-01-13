@@ -38,12 +38,12 @@ ALGORITHM_CLASSES = {
 }
 
 
-def get_algorithm_from_variant(variant,
-                               *args,
-                               **kwargs):
+def get_algorithm_from_variant(variant,  *args, **kwargs):
     algorithm_params = variant['algorithm_params']
     algorithm_type = algorithm_params['type']
     algorithm_kwargs = deepcopy(algorithm_params['kwargs'])
+    exp_name = variant['algorithm_params']["exp_name"]
+    algorithm_kwargs["model_name"] = exp_name.replace('_', '-') + '_1_0'
     kwargs = {**kwargs, **algorithm_kwargs.toDict()}
     algorithm = ALGORITHM_CLASSES[algorithm_type](variant, *args, **kwargs)
     return algorithm

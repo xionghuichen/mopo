@@ -160,8 +160,7 @@ def main():
         experiment_id = '{}_{}e3'.format(experiment_id, int(max_size/1000))
     ####
 
-    variant_spec = add_command_line_args_to_variant_spec(
-        variant_spec, command_line_args)
+    variant_spec = add_command_line_args_to_variant_spec(variant_spec, command_line_args)
 
     if command_line_args.video_save_frequency is not None:
         assert 'algorithm_params' in variant_spec
@@ -178,12 +177,9 @@ def main():
     variant = copy.deepcopy(variant)
 
     environment_params = variant['environment_params']
-    training_environment = (
-        get_environment_from_params(environment_params['training']))
-    evaluation_environment = (
-        get_environment_from_params(environment_params['evaluation'](variant))
-        if 'evaluation' in environment_params
-        else training_environment)
+    training_environment = (get_environment_from_params(environment_params['training']))
+    evaluation_environment = (get_environment_from_params(environment_params['evaluation'](variant))
+        if 'evaluation' in environment_params else training_environment)
 
     replay_pool = (get_replay_pool_from_variant(variant, training_environment))
     sampler = get_sampler_from_variant(variant)
@@ -205,8 +201,7 @@ def main():
         Qs=Qs,
         pool=replay_pool,
         static_fns=static_fns,
-        sampler=sampler,
-        session=session)
+        sampler=sampler, session=session)
 
     # train
     list(algorithm.train())
