@@ -1,4 +1,5 @@
 import sys
+from RLA.easy_log.tester import tester
 sys.path.append("../")
 
 def get_params_from_file(filepath, params_name='params'):
@@ -146,6 +147,7 @@ def main():
     command_line_args = example_args
     params = variant_spec.get('algorithm_params')
     local_dir = os.path.join(params.get('log_dir'), params.get('domain'))
+
     resources_per_trial = _normalize_trial_resources(
         command_line_args.resources_per_trial,
         command_line_args.trial_cpus,
@@ -162,6 +164,7 @@ def main():
 
     variant_spec = add_command_line_args_to_variant_spec(variant_spec, command_line_args)
 
+
     if command_line_args.video_save_frequency is not None:
         assert 'algorithm_params' in variant_spec
         variant_spec['algorithm_params']['kwargs']['video_save_frequency'] = (
@@ -173,8 +176,17 @@ def main():
     gpu_options = tf.GPUOptions(allow_growth=True)
     session = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options))
     tf.keras.backend.set_session(session)
+
     # build
     variant = copy.deepcopy(variant)
+
+    tester.set_hyper_param(**variant)
+    tester.add_record_param(['run_params.seed'])
+    tester.configure(task_name='policy_learn', private_config_path='../rla_config.yaml',
+                     run_file='main.py', log_root='../')
+    tester.log_files_gen()
+    tester.print_args()
+
 
     environment_params = variant['environment_params']
     training_environment = (get_environment_from_params(environment_params['training']))
