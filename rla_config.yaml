@@ -14,7 +14,7 @@ BACKUP_CONFIG:
     - './mopo'
 
 DL_FRAMEWORK: 'tensorflow'
-SEND_LOG_FILE: False
+SEND_LOG_FILE: True
 
 REMOTE_SETTING:
   ftp_server: '114.212.20.193'

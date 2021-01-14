@@ -24,7 +24,7 @@ from mopo.utils.logging import Progress
 import mopo.utils.filesystem as filesystem
 import mopo.off_policy.loader as loader
 from RLA.easy_log.tester import tester
-
+from d4rl import infos
 
 def td_target(reward, discount, next_value):
     return reward + discount * next_value
@@ -112,6 +112,12 @@ class MOPO(RLAlgorithm):
 
         super(MOPO, self).__init__(**kwargs)
         print("[ DEBUG ]: model name: {}".format(model_name))
+        self._env_name = model_name[:-4] + '-v0'
+        if self._env_name in infos.REF_MIN_SCORE:
+            self.min_ret = infos.REF_MIN_SCORE[self._env_name]
+            self.max_ret = infos.REF_MAX_SCORE[self._env_name]
+        else:
+            self.min_ret = self.max_ret = 0
         obs_dim = np.prod(training_environment.active_observation_shape)
         act_dim = np.prod(training_environment.action_space.shape)
         self._model_type = model_type
@@ -145,7 +151,7 @@ class MOPO(RLAlgorithm):
         self.gru_state_dim = gru_state_dim
         self.network_kwargs = network_kwargs
         self.adapt = adapt
-        self.optim_alpha = True
+        self.optim_alpha = False
         # self._policy = policy
 
         # self._Qs = Qs
@@ -448,38 +454,12 @@ class MOPO(RLAlgorithm):
         _, pi_global_norm = tf.clip_by_global_norm(grads, 2000)
         alpha_loss = - alpha * tf.stop_gradient(
             tf.reduce_mean(self._target_entropy + logp_pi))
-        alpha_optimizer = tf.train.RMSPropOptimizer(learning_rate=0.01)
+        alpha_optimizer = tf.train.RMSPropOptimizer(learning_rate=0.001)
         if self.optim_alpha:
             train_alpha_op = alpha_optimizer.minimize(alpha_loss, var_list=[log_alpha])
         else:
-            train_value_op = tf.no_op()
-        # Q_values = self._Q_values = tuple(
-        #     Q([self._observations_ph, self._actions_ph])
-        #     for Q in self._Qs)
-        #
-        # Q_losses = self._Q_losses = tuple(
-        #     tf.losses.mean_squared_error(
-        #         labels=Q_target, predictions=Q_value, weights=0.5)
-        #     for Q_value in Q_values)
+            train_alpha_op = tf.no_op()
 
-        # self._Q_optimizers = tuple(
-        #     tf.train.AdamOptimizer(
-        #         learning_rate=self._Q_lr,
-        #         name='{}_{}_optimizer'.format(Q._name, i)
-        #     ) for i, Q in enumerate(self._Qs))
-        #
-        # Q_training_ops = tuple(
-        #     tf.contrib.layers.optimize_loss(
-        #         Q_loss,
-        #         self.global_step,
-        #         learning_rate=self._Q_lr,
-        #         optimizer=Q_optimizer,
-        #         variables=Q.trainable_variables,
-        #         increment_global_step=False,
-        #         summaries=(( "loss", "gradients", "gradient_norm", "global_gradient_norm"
-        #         ) if self._tf_summaries else ()))
-        #     for i, (Q, Q_loss, Q_optimizer)
-        #     in enumerate(zip(self._Qs, Q_losses, self._Q_optimizers)))
 
         with tf.control_dependencies([train_value_op]):
             target_update = tf.group([tf.assign(v_targ, self._tau * v_targ + (1 - self._tau) * v_main)
@@ -660,7 +640,12 @@ class MOPO(RLAlgorithm):
                     for key in sorted(training_logs.keys())
                 )
             )))
-
+            diagnostics['perf/AverageReturn'] = diagnostics['evaluation/return-average']
+            diagnostics['perf/AverageLength'] = diagnostics['evaluation/episode-length-avg']
+            if not self.min_ret == self.max_ret:
+                diagnostics['perf/NormalizedReturn'] = (diagnostics['perf/AverageReturn'] - self.min_ret) \
+                                                       / (self.max_ret - self.min_ret)
+            # diagnostics['keys/logp_pi'] =  diagnostics['training/sac_pi/logp_pi']
             if self._eval_render_mode is not None and hasattr(
                     evaluation_environment, 'render_rollouts'):
                 training_environment.render_rollouts(evaluation_paths)
