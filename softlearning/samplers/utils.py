@@ -72,7 +72,7 @@ def rollout(env,
                 env.render()
 
         if terminal:
-            policy.reset()
+            sampler.reset_policy()
             if break_on_terminal: break
 
     assert pool._size == t + 1

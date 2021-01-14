@@ -94,6 +94,9 @@ class SimpleSampler(BaseSampler):
 
         return next_observation, reward, terminal, info
 
+    def reset_policy(self):
+        self.hidden = self.make_init_hidden(1)
+
     def random_batch(self, batch_size=None, **kwargs):
         batch_size = batch_size or self._batch_size
         observation_keys = getattr(self.env, 'observation_keys', None)

@@ -503,7 +503,7 @@ class MOPO(RLAlgorithm):
             if state_dim == 2:
                 mu = mu[0]
                 pi = pi[0]
-            print(f"[ DEBUG ]: pi_shape: {pi.shape}, mu_shape: {mu.shape}")
+            # print(f"[ DEBUG ]: pi_shape: {pi.shape}, mu_shape: {mu.shape}")
             if deterministic:
                 return mu, hidden
             else:
@@ -598,7 +598,7 @@ class MOPO(RLAlgorithm):
                 math.ceil(self._epoch_length / self.sampler._max_path_length))
             # evaluate the polices
             evaluation_paths = self._evaluation_paths(
-                policy, evaluation_environment)
+                (lambda _state, _hidden: get_action(_state, _hidden, True), make_init_hidden), evaluation_environment)
             gt.stamp('evaluation_paths')
 
             if evaluation_paths:

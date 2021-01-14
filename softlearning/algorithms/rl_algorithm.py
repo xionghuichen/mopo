@@ -259,13 +259,13 @@ class RLAlgorithm(tf.contrib.checkpoint.Checkpointable):
     def _evaluation_paths(self, policy, evaluation_env):
         if self._eval_n_episodes < 1: return ()
 
-        with policy.set_deterministic(self._eval_deterministic):
-            paths = rollouts(
-                self._eval_n_episodes,
-                evaluation_env,
-                policy,
-                self.sampler._max_path_length,
-                render_mode=self._eval_render_mode)
+        # with policy.set_deterministic(self._eval_deterministic):
+        paths = rollouts(
+            self._eval_n_episodes,
+            evaluation_env,
+            policy,
+            self.sampler._max_path_length,
+            render_mode=self._eval_render_mode)
 
         should_save_video = (
             self._video_save_frequency > 0
