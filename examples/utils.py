@@ -231,7 +231,9 @@ def get_parser(allow_policy_list=False):
     #     default=DEFAULT_DOMAIN)
     parser.add_argument(
         '--config',
-        type=str)
+        type=str,
+        default='examples.config.d4rl.halfcheetah_mixed'
+        )
     # parser.add_argument(
     #     '--task', type=str, choices=AVAILABLE_TASKS, default=DEFAULT_TASK)
 

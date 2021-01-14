@@ -111,7 +111,7 @@ class MOPO(RLAlgorithm):
         """
 
         super(MOPO, self).__init__(**kwargs)
-
+        print(f"[ DEBUG ]: model name: {model_name}")
         obs_dim = np.prod(training_environment.active_observation_shape)
         act_dim = np.prod(training_environment.action_space.shape)
         self._model_type = model_type
@@ -120,6 +120,7 @@ class MOPO(RLAlgorithm):
                                       num_networks=num_networks, num_elites=num_elites,
                                       model_type=model_type, separate_mean_var=separate_mean_var,
                                       name=model_name, load_dir=model_load_dir, deterministic=deterministic)
+        print(f'[ MOPO ]: got self._model')
         self._static_fns = static_fns
         self.fake_env = FakeEnv(self._model, self._static_fns, penalty_coeff=penalty_coeff,
                                 penalty_learned_var=penalty_learned_var)
@@ -221,12 +222,12 @@ class MOPO(RLAlgorithm):
 
         self._prev_state_p_ph = tf.placeholder(
             tf.float32,
-            shape=(None, None, self.gru_state_dim),
+            shape=(None, self.gru_state_dim),
             name='prev_state_p',
         )
         self._prev_state_v_ph = tf.placeholder(
             tf.float32,
-            shape=(None, None, self.gru_state_dim),
+            shape=(None, self.gru_state_dim),
             name='prev_state_v',
         )
 
@@ -489,6 +490,28 @@ class MOPO(RLAlgorithm):
 
         self._session.run(tf.global_variables_initializer())
 
+    def get_action_meta(self, state, hidden, deterministic=False):
+        with self._session.as_default():
+            state_dim = len(np.shape(state))
+            if state_dim == 2:
+                state = state[None]
+            feed_dict = {
+                self._observations_ph: state,
+                self._prev_state_p_ph: hidden
+            }
+            mu, pi = self._session.run([self.mu, self.pi], feed_dict=feed_dict)
+            if state_dim == 2:
+                mu = mu[0]
+                pi = pi[0]
+            print(f"[ DEBUG ]: pi_shape: {pi.shape}, mu_shape: {mu.shape}")
+            if deterministic:
+                return mu, hidden
+            else:
+                return pi, hidden
+
+    def make_init_hidden(self, batch_size=1):
+        return np.zeros((batch_size, self.gru_state_dim))
+
     def _train(self):
         
         """Return a generator that performs RL training.
@@ -508,8 +531,12 @@ class MOPO(RLAlgorithm):
 
         # if not self._training_started:
         self._init_training()
-
-        self.sampler.initialize(training_environment, policy, pool)
+        # TODO: change policy to placeholder or a function
+        def get_action(state, hidden, deterministic=False):
+            return self.get_action_meta(state, hidden, deterministic)
+        def make_init_hidden(batch_size=1):
+            return self.make_init_hidden(batch_size)
+        self.sampler.initialize(training_environment, (get_action, make_init_hidden), pool)
 
         gt.reset_root()
         gt.rename_root('RLAlgorithm')
@@ -569,7 +596,7 @@ class MOPO(RLAlgorithm):
 
             training_paths = self.sampler.get_last_n_paths(
                 math.ceil(self._epoch_length / self.sampler._max_path_length))
-
+            # evaluate the polices
             evaluation_paths = self._evaluation_paths(
                 policy, evaluation_environment)
             gt.stamp('evaluation_paths')
@@ -637,6 +664,7 @@ class MOPO(RLAlgorithm):
         return self._train(*args, **kwargs)
 
     def _log_policy(self):
+        # TODO: how to saving models
         save_path = os.path.join(self._log_dir, 'models')
         filesystem.mkdir(save_path)
         weights = self._policy.get_weights()
@@ -646,7 +674,7 @@ class MOPO(RLAlgorithm):
         pickle.dump(data, open(full_path, 'wb'))
 
     def _log_model(self):
-        print('MODEL: {}'.format(self._model_type))
+        print('[ MODEL ]: {}'.format(self._model_type))
         if self._model_type == 'identity':
             print('[ MOPO ] Identity model, skipping save')
         elif self._model.model_loaded:
@@ -713,10 +741,13 @@ class MOPO(RLAlgorithm):
         obs = batch['observations']
         steps_added = []
         for i in range(self._rollout_length):
+            hidden = self.make_init_hidden(1)
             if not self._rollout_random:
-                act = self._policy.actions_np(obs)
+                # act = self._policy.actions_np(obs)
+                act, hidden = self.get_action_meta(obs, hidden)
             else:
-                act_ = self._policy.actions_np(obs)
+                # act_ = self._policy.actions_np(obs)
+                act_, hidden = self.get_action_meta(obs, hidden)
                 act = np.random.uniform(low=-1, high=1, size=act_.shape)
 
             if self._model_type == 'identity':
@@ -796,45 +827,16 @@ class MOPO(RLAlgorithm):
             batch = env_batch
         return batch
 
-    def _init_global_step(self):
-        self.global_step = training_util.get_or_create_global_step()
-        self._training_ops.update({
-            'increment_global_step': training_util._increment_global_step(1)
-        })
-
-
-    def _get_Q_target(self):
-        next_actions = self._policy.actions([self._next_observations_ph])
-        next_log_pis = self._policy.log_pis(
-            [self._next_observations_ph], next_actions)
-
-        next_Qs_values = tuple(
-            Q([self._next_observations_ph, next_actions])
-            for Q in self._Q_targets)
-
-        min_next_Q = tf.reduce_min(next_Qs_values, axis=0)
-        next_value = min_next_Q - self._alpha * next_log_pis
-
-        Q_target = td_target(
-            reward=self._reward_scale * self._rewards_ph,
-            discount=self._discount,
-            next_value=(1 - self._terminals_ph) * next_value)
-        return Q_target
+    # def _init_global_step(self):
+    #     self.global_step = training_util.get_or_create_global_step()
+    #     self._training_ops.update({
+    #         'increment_global_step': training_util._increment_global_step(1)
+    #     })
+    #
 
     def _init_training(self):
         self._session.run(self.target_init)
         # self._update_target(tau=1.0)
-
-    def _update_target(self, tau=None):
-        tau = tau or self._tau
-
-        for Q, Q_target in zip(self._Qs, self._Q_targets):
-            source_params = Q.get_weights()
-            target_params = Q_target.get_weights()
-            Q_target.set_weights([
-                tau * source + (1.0 - tau) * target
-                for source, target in zip(source_params, target_params)
-            ])
 
     def _do_training(self, iteration, batch):
         """Runs the operations for updating training and target ops."""
@@ -846,24 +848,25 @@ class MOPO(RLAlgorithm):
 
         self._session.run(self._training_ops, feed_dict)
 
-        if iteration % self._target_update_interval == 0:
-            # Run target ops here.
-            self._update_target()
+        # if iteration % self._target_update_interval == 0:
+        #     # Run target ops here.
+        #     self._update_target()
 
     def _get_feed_dict(self, iteration, batch):
         """Construct TensorFlow feed_dict from sample batch."""
-
+        state_dim = len(batch['observations'].shape)
+        resize = lambda x: x[None] if state_dim == 2 else x
         feed_dict = {
-            self._observations_ph: batch['observations'],
-            self._actions_ph: batch['actions'],
-            self._next_observations_ph: batch['next_observations'],
-            self._rewards_ph: batch['rewards'],
-            self._terminals_ph: batch['terminals'],
+            self._observations_ph: resize(batch['observations']),
+            self._actions_ph: resize(batch['actions']),
+            self._next_observations_ph: resize(batch['next_observations']),
+            self._rewards_ph: resize(batch['rewards']),
+            self._terminals_ph: resize(batch['terminals']),
         }
 
         if self._store_extra_policy_info:
-            feed_dict[self._log_pis_ph] = batch['log_pis']
-            feed_dict[self._raw_actions_ph] = batch['raw_actions']
+            feed_dict[self._log_pis_ph] = resize(batch['log_pis'])
+            feed_dict[self._raw_actions_ph] = resize(batch['raw_actions'])
 
         if iteration is not None:
             feed_dict[self._iteration_ph] = iteration

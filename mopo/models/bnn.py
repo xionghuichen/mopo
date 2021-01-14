@@ -44,7 +44,6 @@ class BNN:
         """
         self.name = get_required_argument(params, 'name', 'Must provide name.')
         self.model_dir = params.get('model_dir', None)
-
         print('[ BNN ] Initializing model: {} | {} networks | {} elites'.format(params['name'], params['num_networks'], params['num_elites']))
         if params.get('sess', None) is None:
             gpu_options = tf.GPUOptions(allow_growth=True)

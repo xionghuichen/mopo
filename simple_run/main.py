@@ -139,12 +139,17 @@ def _normalize_trial_resources(resources, cpu, gpu, extra_cpu, extra_gpu):
 
     return resources
 
+def get_package_path():
+    return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
 
 def main():
     import sys
     example_args = get_parser().parse_args(sys.argv[1:])
+
     variant_spec = get_variant_spec(example_args)
     command_line_args = example_args
+    print(f'vriant spec: {variant_spec}')
     params = variant_spec.get('algorithm_params')
     local_dir = os.path.join(params.get('log_dir'), params.get('domain'))
 
@@ -182,8 +187,8 @@ def main():
 
     tester.set_hyper_param(**variant)
     tester.add_record_param(['run_params.seed'])
-    tester.configure(task_name='policy_learn', private_config_path='../rla_config.yaml',
-                     run_file='main.py', log_root='../')
+    tester.configure(task_name='policy_learn', private_config_path=os.path.join(get_package_path(), 'rla_config.yaml'),
+                     run_file='main.py', log_root=get_package_path())
     tester.log_files_gen()
     tester.print_args()
 
@@ -203,6 +208,7 @@ def main():
     domain = environment_params['training']['domain']
     static_fns = mopo.static[domain.lower()]
     ####
+    print(f"[ DEBUG ] KWARGS: {variant['algorithm_params']['kwargs']}")
 
     algorithm = get_algorithm_from_variant(
         variant=variant,
@@ -214,7 +220,7 @@ def main():
         pool=replay_pool,
         static_fns=static_fns,
         sampler=sampler, session=session)
-
+    print(f'[ DEBUG ] finish construct model, start training')
     # train
     list(algorithm.train())
 

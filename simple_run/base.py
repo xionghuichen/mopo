@@ -42,6 +42,10 @@ MAX_PATH_LENGTH_PER_DOMAIN = {
     'Pendulum': 200,
 }
 import tensorflow as tf
+import os
+def get_package_path():
+    return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
 ALGORITHM_PARAMS_ADDITIONAL = {
     'MOPO': {
         'type': 'MOPO',
@@ -53,7 +57,7 @@ ALGORITHM_PARAMS_ADDITIONAL = {
             'store_extra_policy_info': False,
             'action_prior': 'uniform',
             'n_initial_exploration_steps': int(5000),
-            "model_load_dir": "../models/",
+            "model_load_dir": os.path.join(get_package_path(), 'models'),
             "num_networks": 100,
             "network_kwargs": {
                 "hidden_sizes": [256, 256],

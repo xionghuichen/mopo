@@ -9,3 +9,4 @@ RUN pip install git+https://github.com/xionghuichen/RLAssistant \
             dotmap
 COPY environment /root/mopo_env
 RUN pip install -r /root/mopo_env/requirements.txt
+RUN pip install mujoco_py==2.0.2.9
