@@ -529,6 +529,7 @@ class BNN:
         """
         if len(inputs.shape) == 2:
             if factored:
+
                 return self.sess.run(
                     [self.sy_pred_mean2d_fac, self.sy_pred_var2d_fac],
                     feed_dict={self.sy_pred_in2d: inputs}

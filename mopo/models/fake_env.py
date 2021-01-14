@@ -44,7 +44,19 @@ class FakeEnv:
             return_single = False
 
         inputs = np.concatenate((obs, act), axis=-1)
-        ensemble_model_means, ensemble_model_vars = self.model.predict(inputs, factored=True)
+        batch_length = inputs.shape[0]
+        all_means = []
+        all_vars = []
+        if self.model.num_nets * batch_length > 500000:
+            group_batch_num = int(500000 / self.model.num_nets)
+            for i in range(int(np.ceil(batch_length / group_batch_num))):
+                ensemble_model_means, ensemble_model_vars = self.model.predict(
+                    inputs[i * group_batch_num: (i + 1) * group_batch_num], factored=True)
+                all_means.append(ensemble_model_means)
+                all_vars.append(ensemble_model_vars)
+        ensemble_model_means = np.concatenate(all_means, axis=1)
+        ensemble_model_vars = np.concatenate(all_vars, axis=1)
+
         ensemble_model_means[:,:,1:] += obs
         ensemble_model_stds = np.sqrt(ensemble_model_vars)
 
