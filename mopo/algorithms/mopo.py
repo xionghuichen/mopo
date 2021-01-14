@@ -145,6 +145,7 @@ class MOPO(RLAlgorithm):
         self.gru_state_dim = gru_state_dim
         self.network_kwargs = network_kwargs
         self.adapt = adapt
+        self.optim_alpha = True
         # self._policy = policy
 
         # self._Qs = Qs
@@ -159,7 +160,7 @@ class MOPO(RLAlgorithm):
 
         self._reward_scale = reward_scale
         self._target_entropy = (
-            -np.prod(self._training_environment.action_space.shape)
+            -np.prod(self._training_environment.action_space.shape) * 1.5
             if target_entropy == 'auto'
             else target_entropy)
         print('[ MOPO ] Target entropy: {}'.format(self._target_entropy))
@@ -445,7 +446,13 @@ class MOPO(RLAlgorithm):
             pi_var_list += get_vars("lstm_net_pi")
         train_pi_op = pi_optimizer.minimize(policy_loss, var_list=pi_var_list)
         _, pi_global_norm = tf.clip_by_global_norm(grads, 2000)
-
+        alpha_loss = - alpha * tf.stop_gradient(
+            tf.reduce_mean(self._target_entropy + logp_pi))
+        alpha_optimizer = tf.train.RMSPropOptimizer(learning_rate=0.01)
+        if self.optim_alpha:
+            train_alpha_op = alpha_optimizer.minimize(alpha_loss, var_list=[log_alpha])
+        else:
+            train_value_op = tf.no_op()
         # Q_values = self._Q_values = tuple(
         #     Q([self._observations_ph, self._actions_ph])
         #     for Q in self._Qs)
@@ -482,7 +489,7 @@ class MOPO(RLAlgorithm):
                                      for v_main, v_targ in zip(get_vars('main'), get_vars('target'))])
 
         # construct opt
-        self._training_ops = [tf.group((train_value_op, train_pi_op, target_update)),
+        self._training_ops = [tf.group((train_value_op, train_pi_op, target_update, train_alpha_op)),
                               { "sac_pi/pi_global_norm": pi_global_norm,
                                 "sac_Q/q_global_norm": q_global_norm,
                                 "Q/q1_loss": q1_loss,
