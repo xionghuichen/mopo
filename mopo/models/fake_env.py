@@ -1,6 +1,5 @@
 import numpy as np
 import tensorflow as tf
-import pdb
 
 class FakeEnv:
     def __init__(self, model, config,

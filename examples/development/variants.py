@@ -363,7 +363,7 @@ def get_variant_spec(args):
     if args.checkpoint_replay_pool is not None:
         variant_spec['run_params']['checkpoint_replay_pool'] = (
             args.checkpoint_replay_pool)
-    import pdb; pdb.set_trace()
+    # import pdb; pdb.set_trace()
     if 'Point2DEnv' in domain:
         variant_spec['replay_pool_params']['kwargs']['obs_filter'] = True
 

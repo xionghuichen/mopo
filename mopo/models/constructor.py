@@ -1,6 +1,5 @@
 import numpy as np
 import tensorflow as tf
-import pdb
 
 from mopo.models.fc import FC
 from mopo.models.bnn import BNN

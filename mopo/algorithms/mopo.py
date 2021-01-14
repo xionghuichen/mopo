@@ -600,7 +600,6 @@ class MOPO(RLAlgorithm):
             evaluation_paths = self._evaluation_paths(
                 (lambda _state, _hidden: get_action(_state, _hidden, True), make_init_hidden), evaluation_environment)
             gt.stamp('evaluation_paths')
-
             if evaluation_paths:
                 evaluation_metrics = self._evaluate_rollouts(
                     evaluation_paths, evaluation_environment)

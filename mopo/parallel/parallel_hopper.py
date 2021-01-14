@@ -5,7 +5,6 @@ from gym import utils
 from gym.envs.mujoco import mujoco_env
 from gym.envs.mujoco.mujoco_env import convert_observation_to_space
 import mujoco_py as mjc
-import pdb
 
 class ParallelMujocoEnv(mujoco_env.MujocoEnv):
     """Superclass for all MuJoCo environments.

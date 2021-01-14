@@ -52,7 +52,8 @@ class SimpleSampler(BaseSampler):
 
         action, self.hidden = self.get_action(self.env.convert_to_active_observation(
                 self._current_observation)[None], self.hidden)
-
+        action = action[0]
+        # print(action.shape)
         next_observation, reward, terminal, info = self.env.step(action)
         self._path_length += 1
         self._path_return += reward
@@ -75,6 +76,9 @@ class SimpleSampler(BaseSampler):
                 field_name: np.array(values)
                 for field_name, values in self._current_path.items()
             }
+            for k, v, in last_path.items():
+                print('k: {}, v: {}, {}'.format(k, v.shape, v[0]))
+            ######## this function is siginificant for replaybuffer
             self.pool.add_path(last_path)
             self._last_n_paths.appendleft(last_path)
 
@@ -82,13 +86,14 @@ class SimpleSampler(BaseSampler):
                                         self._path_return)
             self._last_path_return = self._path_return
 
-            self.policy.reset()
+            self.reset_policy()
             self._current_observation = None
             self._path_length = 0
             self._path_return = 0
             self._current_path = defaultdict(list)
 
             self._n_episodes += 1
+
         else:
             self._current_observation = next_observation
 

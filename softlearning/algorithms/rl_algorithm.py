@@ -4,7 +4,6 @@ from itertools import count
 import gtimer as gt
 import math
 import os
-import pdb
 
 import tensorflow as tf
 import numpy as np

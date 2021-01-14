@@ -5,7 +5,6 @@ import cv2
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-import pdb
 
 
 def plot_trajectories(writer, label, epoch, env_traj, model_traj, means, stds):

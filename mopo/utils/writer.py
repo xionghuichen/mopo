@@ -1,8 +1,6 @@
 import io
 import numpy as np
 import cv2
-import pdb
-
 import matplotlib
 matplotlib.use('Agg')
 from mpl_toolkits.mplot3d import Axes3D

@@ -6,7 +6,6 @@ import pickle
 
 import numpy as np
 import tensorflow as tf
-import pdb
 
 from softlearning.environments.utils import get_environment_from_params
 from softlearning.policies.utils import get_policy_from_variant

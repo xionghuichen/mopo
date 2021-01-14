@@ -60,7 +60,7 @@ class FlexibleReplayPool(ReplayPool):
 
         index = np.arange(
             self._pointer, self._pointer + num_samples) % self._max_size
-
+        # print(self.field_names)
         for field_name in self.field_names:
             default_value = (
                 self.fields_attrs[field_name].get('default_value', 0.0))
@@ -68,14 +68,17 @@ class FlexibleReplayPool(ReplayPool):
             if field_name not in samples.keys() and field_name in samples['infos'][0].keys():
                 values = np.expand_dims(np.array([samples['infos'][i].get(field_name, default_value) for i in range(num_samples)]), axis=1)
             try:
-                assert values.shape[0] == num_samples
+                assert values.shape[0] == num_samples, f'value shape: {values.shape[0]}, expected: {num_samples}'
                 if isinstance(values[0], dict):
                     values = np.stack([np.concatenate([
                                 value[key]
                                 for key in value.keys()
                             ], axis=-1) for value in values])
                 self.fields[field_name][index] = values
-            except:
+            except Exception as e:
+                import traceback
+                print('[ DEBUG ] errors occurs: {e}')
+                traceback.print_exc(limit=10)
                 import pdb; pdb.set_trace()
         self._advance(num_samples)
 

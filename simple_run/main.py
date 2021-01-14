@@ -100,7 +100,6 @@ def generate_experiment(trainable_class, variant_spec, command_line_args):
     return experiment_id, experiment
 
 import sys
-import pdb
 
 import tensorflow as tf
 

@@ -4,7 +4,6 @@ from .adapters.gym_adapter import (
 )
 
 import mopo.env as env_overwrite
-import pdb
 
 ENVIRONMENTS = {
     'gym': GYM_ENVIRONMENTS,
