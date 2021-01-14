@@ -42,7 +42,7 @@ def main(args):
                 max_epochs=args.max_epochs, max_t=args.max_t)
     model.save(args.model_dir, 0)
 
-# python mopo/scripts/train_model_offline.py --num-networks 100 --separate-mean-var
+# python mopo/scripts/train_model_offline.py --num-networks 7 --separate-mean-var --env halfcheetah --quality medium-expert
 if __name__ == '__main__':
     from argparse import ArgumentParser
     import os
