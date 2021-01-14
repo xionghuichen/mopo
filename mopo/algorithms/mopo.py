@@ -111,7 +111,7 @@ class MOPO(RLAlgorithm):
         """
 
         super(MOPO, self).__init__(**kwargs)
-        print(f"[ DEBUG ]: model name: {model_name}")
+        print("[ DEBUG ]: model name: {}".format(model_name))
         obs_dim = np.prod(training_environment.active_observation_shape)
         act_dim = np.prod(training_environment.action_space.shape)
         self._model_type = model_type
@@ -120,7 +120,7 @@ class MOPO(RLAlgorithm):
                                       num_networks=num_networks, num_elites=num_elites,
                                       model_type=model_type, separate_mean_var=separate_mean_var,
                                       name=model_name, load_dir=model_load_dir, deterministic=deterministic)
-        print(f'[ MOPO ]: got self._model')
+        print('[ MOPO ]: got self._model')
         self._static_fns = static_fns
         self.fake_env = FakeEnv(self._model, self._static_fns, penalty_coeff=penalty_coeff,
                                 penalty_learned_var=penalty_learned_var)

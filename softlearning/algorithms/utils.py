@@ -45,6 +45,6 @@ def get_algorithm_from_variant(variant,  *args, **kwargs):
     exp_name = variant['algorithm_params']["exp_name"]
     algorithm_kwargs["model_name"] = exp_name.replace('_', '-') + '_1_0'
     kwargs = {**kwargs, **algorithm_kwargs.toDict()}
-    print(f"[ DEBUG ]: kwargs to net is {kwargs}")
+    print("[ DEBUG ]: kwargs to net is {}".format(kwargs))
     algorithm = ALGORITHM_CLASSES[algorithm_type](variant, *args, **kwargs)
     return algorithm

@@ -149,7 +149,7 @@ def main():
 
     variant_spec = get_variant_spec(example_args)
     command_line_args = example_args
-    print(f'vriant spec: {variant_spec}')
+    print('vriant spec: {}'.format(variant_spec))
     params = variant_spec.get('algorithm_params')
     local_dir = os.path.join(params.get('log_dir'), params.get('domain'))
 
@@ -208,7 +208,7 @@ def main():
     domain = environment_params['training']['domain']
     static_fns = mopo.static[domain.lower()]
     ####
-    print(f"[ DEBUG ] KWARGS: {variant['algorithm_params']['kwargs']}")
+    print("[ DEBUG ] KWARGS: {}".format(variant['algorithm_params']['kwargs']))
 
     algorithm = get_algorithm_from_variant(
         variant=variant,
@@ -220,7 +220,7 @@ def main():
         pool=replay_pool,
         static_fns=static_fns,
         sampler=sampler, session=session)
-    print(f'[ DEBUG ] finish construct model, start training')
+    print('[ DEBUG ] finish construct model, start training')
     # train
     list(algorithm.train())
 
