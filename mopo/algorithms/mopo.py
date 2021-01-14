@@ -418,10 +418,16 @@ class MOPO(RLAlgorithm):
             discount=self._discount, next_value=(1 - self._terminals_ph) * next_value)
 
         # assert q_target.shape.as_list() == [None, 1]
+        # (self._Q_values,
+        #  self._Q_losses,
+        #  self._alpha,
+        #  self.global_step),
+        self.Q = q1 + q2
 
         q1_loss = tf.reduce_mean(tf.square(q_target - q1))
         q2_loss = tf.reduce_mean(tf.square(q_target - q2))
         value_loss = q1_loss + q2_loss
+        self.Q_loss = (tf.square(q_target - q1) + tf.square(q_target - q2)) / 2
 
         value_optimizer = tf.train.AdamOptimizer(learning_rate=self._Q_lr)
         value_params = get_vars('main/q')
@@ -890,8 +896,8 @@ class MOPO(RLAlgorithm):
         feed_dict = self._get_feed_dict(iteration, batch)
 
         (Q_values, Q_losses, alpha, global_step) = self._session.run(
-            (self._Q_values,
-             self._Q_losses,
+            (self.Q,
+             self.Q_loss,
              self._alpha,
              self.global_step),
             feed_dict)
@@ -903,12 +909,13 @@ class MOPO(RLAlgorithm):
             'alpha': alpha,
         })
 
-        policy_diagnostics = self._policy.get_diagnostics(
-            batch['observations'])
-        diagnostics.update({
-            'policy/{}'.format(key): value
-            for key, value in policy_diagnostics.items()
-        })
+        # TODO (luofm): policy diagnostics
+        # policy_diagnostics = self._policy.get_diagnostics(
+        #     batch['observations'])
+        # diagnostics.update({
+        #     'policy/{}'.format(key): value
+        #     for key, value in policy_diagnostics.items()
+        # })
 
         if self._plotter:
             self._plotter.draw()

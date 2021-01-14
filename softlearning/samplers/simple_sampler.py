@@ -76,8 +76,6 @@ class SimpleSampler(BaseSampler):
                 field_name: np.array(values)
                 for field_name, values in self._current_path.items()
             }
-            for k, v, in last_path.items():
-                print('k: {}, v: {}, {}'.format(k, v.shape, v[0]))
             ######## this function is siginificant for replaybuffer
             self.pool.add_path(last_path)
             self._last_n_paths.appendleft(last_path)
