@@ -846,8 +846,9 @@ class MOPO(RLAlgorithm):
 
         feed_dict = self._get_feed_dict(iteration, batch)
 
-        self._session.run(self._training_ops, feed_dict)
-
+        res = self._session.run(self._training_ops, feed_dict)
+        for k, v in res[1].items():
+            self._writer.add_scalar(k, np.mean(v), iteration)
         # if iteration % self._target_update_interval == 0:
         #     # Run target ops here.
         #     self._update_target()
