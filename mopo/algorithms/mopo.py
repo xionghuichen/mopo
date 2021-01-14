@@ -571,6 +571,7 @@ class MOPO(RLAlgorithm):
 
             self._training_progress = Progress(self._epoch_length * self._n_train_repeat)
             start_samples = self.sampler._total_samples
+            training_logs = {}
             for timestep in count():
                 self._timestep = timestep
                 if (timestep >= self._epoch_length
@@ -594,7 +595,8 @@ class MOPO(RLAlgorithm):
 
                 ## train actor and critic
                 if self.ready_to_train:
-                    self._do_training_repeats(timestep=timestep)
+                    # print('[ DEBUG ]: ready to train at timestep: {}'.format(timestep))
+                    training_logs = self._do_training_repeats(timestep=timestep)
                 gt.stamp('train')
 
                 self._timestep_after_hook()
@@ -646,6 +648,10 @@ class MOPO(RLAlgorithm):
                 ('timestep', self._timestep),
                 ('timesteps_total', self._total_timestep),
                 ('train-steps', self._num_train_steps),
+                *(
+                    ('training/{}'.format(key), training_logs[key])
+                    for key in sorted(training_logs.keys())
+                )
             )))
 
             if self._eval_render_mode is not None and hasattr(
@@ -654,7 +660,9 @@ class MOPO(RLAlgorithm):
 
             ## ensure we did not collect any more data
             assert self._pool.size == self._init_pool_size
-
+            for k, v in diagnostics.items():
+                # print('[ DEBUG ] epoch: {} diagnostics k: {}, v: {}'.format(self._epoch, k, v))
+                self._writer.add_scalar(k, v, self._epoch)
             yield diagnostics
 
         self.sampler.terminate()
@@ -801,14 +809,18 @@ class MOPO(RLAlgorithm):
                 self._train_steps_this_epoch
                 > self._max_train_repeat_per_timestep * self._timestep)
         if trained_enough: return
-
+        log_buffer = []
+        logs = {}
         for i in range(self._n_train_repeat):
-            self._do_training(
+            logs = self._do_training(
                 iteration=timestep,
                 batch=self._training_batch())
+            log_buffer.append(logs)
+        logs_buffer = {k: np.mean([item[k] for item in log_buffer]) for k in logs}
 
         self._num_train_steps += self._n_train_repeat
         self._train_steps_this_epoch += self._n_train_repeat
+        return logs_buffer
 
     def _training_batch(self, batch_size=None):
         batch_size = batch_size or self.sampler._batch_size
@@ -852,8 +864,11 @@ class MOPO(RLAlgorithm):
         feed_dict = self._get_feed_dict(iteration, batch)
 
         res = self._session.run(self._training_ops, feed_dict)
-        for k, v in res[1].items():
-            self._writer.add_scalar(k, np.mean(v), iteration)
+        logs = {k: np.mean(res[1][k]) for k in res[1]}
+        # for k, v in logs.items():
+        #     print("[ DEBUG ] k: {}, v: {}".format(k, v))
+        #     self._writer.add_scalar(k, v, iteration)
+        return logs
         # if iteration % self._target_update_interval == 0:
         #     # Run target ops here.
         #     self._update_target()
