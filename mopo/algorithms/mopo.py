@@ -366,6 +366,8 @@ class MOPO(RLAlgorithm):
             self._training_ops.update({
                 'temperature_alpha': self._alpha_train_op
             })
+        else:
+            self._alpha_train_op = tf.no_op()
 
         self._alpha = alpha
         assert self._action_prior == 'uniform'
