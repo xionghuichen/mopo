@@ -112,7 +112,10 @@ class MOPO(RLAlgorithm):
 
         super(MOPO, self).__init__(**kwargs)
         print("[ DEBUG ]: model name: {}".format(model_name))
-        self._env_name = model_name[:-4] + '-v0'
+        if '_smv' in model_name:
+            self._env_name = model_name[:-8] + '-v0'
+        else:
+            self._env_name = model_name[:-4] + '-v0'
         if self._env_name in infos.REF_MIN_SCORE:
             self.min_ret = infos.REF_MIN_SCORE[self._env_name]
             self.max_ret = infos.REF_MAX_SCORE[self._env_name]
