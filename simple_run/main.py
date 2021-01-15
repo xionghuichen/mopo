@@ -141,7 +141,7 @@ def _normalize_trial_resources(resources, cpu, gpu, extra_cpu, extra_gpu):
 def get_package_path():
     return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-
+# python simple_run/main.py --config examples.config.d4rl.halfcheetah_random
 def main():
     import sys
     example_args = get_parser().parse_args(sys.argv[1:])

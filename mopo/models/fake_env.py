@@ -54,6 +54,12 @@ class FakeEnv:
                     inputs[i * group_batch_num: (i + 1) * group_batch_num], factored=True)
                 all_means.append(ensemble_model_means)
                 all_vars.append(ensemble_model_vars)
+        else:
+            ensemble_model_means, ensemble_model_vars = self.model.predict(
+                inputs[:], factored=True)
+            all_means.append(ensemble_model_means)
+            all_vars.append(ensemble_model_vars)
+        # print(self.model.num_nets * batch_length)
         ensemble_model_means = np.concatenate(all_means, axis=1)
         ensemble_model_vars = np.concatenate(all_vars, axis=1)
 

@@ -756,6 +756,7 @@ class MOPO(RLAlgorithm):
                 term = (np.ones((len(obs), 1)) * self._identity_terminal).astype(np.bool)
                 info = {}
             else:
+                # print("act: {}, obs: {}".format(act.shape, obs.shape))
                 next_obs, rew, term, info = self.fake_env.step(obs, act, **kwargs)
             steps_added.append(len(obs))
 
