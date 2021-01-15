@@ -319,9 +319,53 @@ class MOPO(RLAlgorithm):
                 q2 = vf_mlp(tf.concat([x_v, a], axis=-1))
             return mu, pi, logp_pi, q1, q2, std
 
-        policy_state1 = self._observations_ph
-        value_state1 = self._observations_ph
-        policy_state2 = value_state2 = self._next_observations_ph
+        def lstm_emb(x_ph, a_ph, pre_state_p, pre_state_v):
+            state_acs = tf.concat([x_ph, a_ph], axis=-1)
+
+            with tf.variable_scope("lstm_net_p", reuse=tf.AUTO_REUSE):
+                lstm_input = state_acs
+
+                # cells_policy = []
+                # for h in self.lstm_hidden_layers:
+                #     cells_policy.append(tf.nn.rnn_cell.GRUCell(num_units=h))
+                # cells_policy = tf.nn.rnn_cell.MultiRNNCell(cells=cells_policy,
+                #                                                 state_is_tuple=False)
+                cells_policy = tf.nn.rnn_cell.GRUCell(num_units=self.network_kwargs["lstm_hidden_unit"])
+                policy_out, next_policy_hidden_out = tf.nn.dynamic_rnn(cells_policy, lstm_input,
+                                                                       initial_state=pre_state_p,
+                                                                       dtype=tf.float32, sequence_length=self.seq_len)
+                policy_state = tf.concat([policy_out, x_ph], axis=-1)
+
+            with tf.variable_scope("lstm_net_v", reuse=tf.AUTO_REUSE):
+                # cells_policy = []
+                # for h in self.lstm_hidden_layers:
+                #     cells_policy.append(tf.nn.rnn_cell.GRUCell(num_units=h))
+                # cells_policy = tf.nn.rnn_cell.MultiRNNCell(cells=cells_policy,
+                #                                                 state_is_tuple=False)
+                lstm_input = state_acs
+                cells_policy = tf.nn.rnn_cell.GRUCell(num_units=self.network_kwargs["lstm_hidden_unit"])
+                value_out, next_value_hidden_out = tf.nn.dynamic_rnn(cells_policy, lstm_input,
+                                                                     initial_state=pre_state_v,
+                                                                     dtype=tf.float32, sequence_length=self.seq_len)
+                value_state = tf.concat([value_out, x_ph], axis=-1)
+            return policy_state, value_state, next_policy_hidden_out, next_value_hidden_out, policy_out, value_out
+
+        if self.adapt:
+            policy_state, value_state, next_policy_hidden_out, next_value_hidden_out, policy_out, value_out = lstm_emb(
+                self.x_ph, self.last_acs_ph, self._prev_state_p_ph, self._prev_state_v_ph)
+            policy_state1, value_state1 = policy_state[:, :-1], value_state[:, :-1]
+            policy_state2, value_state2 = policy_state[:, 1:], value_state[:, 1:]
+            action_ph = self._actions_ph[:, :-1]
+            reward_ph = self._rewards_ph[:, :-1]
+            done_ph = self._terminals_ph[:, :-1]
+
+        else:
+            policy_state1 = self._observations_ph
+            value_state1 = self._observations_ph
+            policy_state2 = value_state2 = self._next_observations_ph
+            action_ph = self._actions_ph
+            reward_ph = self._rewards_ph
+            done_ph = self._terminals_ph
 
         ac_kwargs = {
             "hidden_sizes": self.network_kwargs["hidden_sizes"],
@@ -330,7 +374,7 @@ class MOPO(RLAlgorithm):
         }
 
         with tf.variable_scope('main', reuse=False):
-            self.mu, self.pi, logp_pi, q1, q2, std = mlp_actor_critic(policy_state1, value_state1, self._actions_ph,**ac_kwargs)
+            self.mu, self.pi, logp_pi, q1, q2, std = mlp_actor_critic(policy_state1, value_state1, action_ph, **ac_kwargs)
 
 
         pi_entropy = tf.reduce_sum(tf.log(std + 1e-8) + 0.5 * tf.log(2 * np.pi * np.e), axis=-1)
@@ -338,7 +382,7 @@ class MOPO(RLAlgorithm):
             # compose q with pi, for pi-learning
             _, _, _, q1_pi, q2_pi, _ = mlp_actor_critic(policy_state1, value_state1, self.pi, **ac_kwargs)
             # get actions and log probs of actions for next states, for Q-learning
-            _, pi_next, logp_pi_next, _, _, _ = mlp_actor_critic(policy_state2, value_state2, self._actions_ph, **ac_kwargs)
+            _, pi_next, logp_pi_next, _, _, _ = mlp_actor_critic(policy_state2, value_state2, action_ph, **ac_kwargs)
 
         with tf.variable_scope('target'):
             # target q values, using actions from *current* policy
@@ -423,8 +467,8 @@ class MOPO(RLAlgorithm):
         next_value = min_next_Q - self._alpha * next_log_pis
 
         q_target = td_target(
-            reward=self._reward_scale * self._rewards_ph,
-            discount=self._discount, next_value=(1 - self._terminals_ph) * next_value)
+            reward=self._reward_scale * reward_ph,
+            discount=self._discount, next_value=(1 - done_ph) * next_value)
 
         # assert q_target.shape.as_list() == [None, 1]
         # (self._Q_values,
