@@ -1,5 +1,6 @@
 import sys
 from RLA.easy_log.tester import tester
+from softlearning.misc.utils import set_seed, initialize_tf_variables
 sys.path.append("../")
 
 def get_params_from_file(filepath, params_name='params'):
@@ -112,7 +113,6 @@ from softlearning.samplers.utils import get_sampler_from_variant
 from softlearning.value_functions.utils import get_Q_function_from_variant
 
 from softlearning.misc.utils import set_seed, initialize_tf_variables
-from examples.instrument import run_example_local
 import pickle
 import copy
 import glob
@@ -221,6 +221,7 @@ def main():
         sampler=sampler, session=session)
     print('[ DEBUG ] finish construct model, start training')
     # train
+    initialize_tf_variables(session, only_uninitialized=True)
     list(algorithm.train())
 
 if __name__=='__main__':

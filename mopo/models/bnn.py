@@ -275,7 +275,9 @@ class BNN:
 
     def load_params(self):
         with self.sess.as_default():
-            params_dict = loadmat(os.path.join(self.model_dir, "%s.mat" % self.name))
+            load_path = os.path.join(self.model_dir, "%s.mat" % self.name)
+            logger.info("load path", load_path)
+            params_dict = loadmat(load_path)
             all_vars = self.nonoptvars + self.optvars
             for i, var in enumerate(all_vars):
                 var.load(params_dict[str(i)])

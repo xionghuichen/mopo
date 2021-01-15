@@ -18,11 +18,11 @@ class SimpleSampler(BaseSampler):
         self._current_observation = None
         self._total_samples = 0
 
-    def initialize(self, env, policy, pool):
-        super(SimpleSampler, self).initialize(env, policy, pool)
-        self.get_action = self.policy[0]
-        self.make_init_hidden = self.policy[1]
-        self.hidden = self.make_init_hidden()
+    # def initialize(self, env, policy, pool):
+    #     super(SimpleSampler, self).initialize(env, policy, pool)
+    #     self.get_action = self.policy[0]
+    #     self.make_init_hidden = self.policy[1]
+    #     self.hidden = self.make_init_hidden()
 
     def _process_observations(self,
                               observation,
@@ -50,9 +50,14 @@ class SimpleSampler(BaseSampler):
                 self._reset_state_vector = self.env.unwrapped.state_vector()
             ####
 
-        action, self.hidden = self.get_action(self.env.convert_to_active_observation(
-                self._current_observation)[None], self.hidden)
-        action = action[0]
+        action = self.policy.actions_np([
+            self.env.convert_to_active_observation(
+                self._current_observation)[None]
+        ])[0]
+
+        # action, self.hidden = self.get_action(self.env.convert_to_active_observation(
+        #         self._current_observation)[None], self.hidden)
+        # action = action[0]
         # print(action.shape)
         next_observation, reward, terminal, info = self.env.step(action)
         self._path_length += 1
@@ -98,7 +103,8 @@ class SimpleSampler(BaseSampler):
         return next_observation, reward, terminal, info
 
     def reset_policy(self):
-        self.hidden = self.make_init_hidden(1)
+        self.policy.reset()
+        # self.hidden = self.make_init_hidden(1)
 
     def random_batch(self, batch_size=None, **kwargs):
         batch_size = batch_size or self._batch_size

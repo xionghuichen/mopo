@@ -1,13 +1,13 @@
 import pickle
 from collections import OrderedDict
 
-import ray
+# import ray
 import tensorflow as tf
 import numpy as np
 
 
 from .base_sampler import BaseSampler
-from .utils import rollout
+from .utils import rollouts
 
 
 class RemoteSampler(BaseSampler):
