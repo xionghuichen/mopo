@@ -273,7 +273,7 @@ class MOPO(RLAlgorithm):
         EPS = 1e-8
 
         def mlp(x, hidden_sizes=(32,), activation=tf.tanh, output_activation=None, kernel_initializer=None):
-            print(hidden_sizes)
+            print('[ DEBUG ], hidden layer size: ', hidden_sizes)
             for h in hidden_sizes[:-1]:
                 x = tf.layers.dense(x, units=h, activation=activation, kernel_initializer=kernel_initializer)
             return tf.layers.dense(x, units=hidden_sizes[-1], activation=output_activation,
@@ -296,6 +296,7 @@ class MOPO(RLAlgorithm):
             return mu, pi, logp_pi
 
         def mlp_gaussian_policy(x, a, hidden_sizes, activation, output_activation):
+            print('[ DEBUG ]: output activation: ', output_activation, ', activation: ', activation)
             act_dim = a.shape.as_list()[-1]
             net = mlp(x, list(hidden_sizes), activation, activation)
             mu = tf.layers.dense(net, act_dim, activation=output_activation)
@@ -442,32 +443,41 @@ class MOPO(RLAlgorithm):
         #  self._Q_losses,
         #  self._alpha,
         #  self.global_step),
-        self.Q = q1 + q2
-
+        self.Q1 = q1
+        self.Q2 = q2
+        q_target = tf.stop_gradient(q_target)
         q1_loss = tf.reduce_mean(tf.square(q_target - q1))
         q2_loss = tf.reduce_mean(tf.square(q_target - q2))
         value_loss = q1_loss + q2_loss
         self.Q_loss = (tf.square(q_target - q1) + tf.square(q_target - q2)) / 2
 
         value_optimizer = tf.train.AdamOptimizer(learning_rate=self._Q_lr)
-        value_params = get_vars('main/q')
+        print('[ DEBUG ]: Q lr is {}'.format(self._Q_lr))
+        value_params = get_vars('main/q1') + get_vars('main/q2')
         if self.adapt:
             value_params += get_vars("lstm_net_v")
 
         grads, variables = zip(*value_optimizer.compute_gradients(value_loss, var_list=value_params))
-
-        _, q_global_norm = tf.clip_by_global_norm(grads, 2000)
-        train_value_op = value_optimizer.minimize(value_loss, var_list=value_params)
+        grads, q_global_norm = tf.clip_by_global_norm(grads, 2000)
+        train_value_op = value_optimizer.apply_gradients(zip(grads, variables))
 
         pi_optimizer = tf.train.AdamOptimizer(learning_rate=self._policy_lr)
+        print('[ DEBUG ]: policy lr is {}'.format(self._policy_lr))
         pi_var_list = get_vars('main/pi')
         if self.adapt:
             pi_var_list += get_vars("lstm_net_pi")
-        train_pi_op = pi_optimizer.minimize(policy_loss, var_list=pi_var_list)
-        _, pi_global_norm = tf.clip_by_global_norm(grads, 2000)
+
+        grads, variables = zip(*pi_optimizer.compute_gradients(policy_loss, var_list=pi_var_list))
+        grads, pi_global_norm = tf.clip_by_global_norm(grads, 2000)
+        train_pi_op = pi_optimizer.apply_gradients(zip(grads, variables))
+        # train_pi_op = value_optimizer.minimize(value_loss, var_list=value_params)
+
+        # train_pi_op = pi_optimizer.minimize(policy_loss, var_list=pi_var_list)
+        # _, pi_global_norm = tf.clip_by_global_norm(grads, 2000)
 
 
         with tf.control_dependencies([train_value_op]):
+            print('[ DEBUG ] tau is: ', self._tau)
             target_update = tf.group([tf.assign(v_targ, (1 - self._tau) * v_targ + self._tau * v_main)
                                       for v_main, v_targ in zip(get_vars('main'), get_vars('target'))])
 
@@ -488,6 +498,7 @@ class MOPO(RLAlgorithm):
                                 "sac_pi/std": logp_pi, }]
 
         self._session.run(tf.global_variables_initializer())
+        self._session.run(self.target_init)
 
     def get_action_meta(self, state, hidden, deterministic=False):
         with self._session.as_default():
@@ -910,13 +921,14 @@ class MOPO(RLAlgorithm):
 
         feed_dict = self._get_feed_dict(iteration, batch)
 
-        (Q_values, Q_losses, alpha, global_step) = self._session.run(
-            (self.Q,
+        (Q_value1, Q_value2, Q_losses, alpha, global_step) = self._session.run(
+            (self.Q1,
+             self.Q2,
              self.Q_loss,
              self._alpha,
              self.global_step),
             feed_dict)
-
+        Q_values = np.concatenate((Q_value1, Q_value2), axis=0)
         diagnostics = OrderedDict({
             'Q-avg': np.mean(Q_values),
             'Q-std': np.std(Q_values),
