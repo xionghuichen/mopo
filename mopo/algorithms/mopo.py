@@ -360,7 +360,7 @@ class MOPO(RLAlgorithm):
         alpha = tf.exp(log_alpha)
         if isinstance(self._target_entropy, Number):
             alpha_loss = -tf.reduce_mean(
-                alpha * tf.stop_gradient(logp_pi + self._target_entropy))
+                log_alpha * tf.stop_gradient(logp_pi + self._target_entropy))
 
             self._alpha_optimizer = tf.train.AdamOptimizer(
                 self._policy_lr, name='alpha_optimizer')
@@ -432,10 +432,11 @@ class MOPO(RLAlgorithm):
 
 
         print('q1_pi: {}, q2_pi: {}, policy_state2: {}, policy_state1: {}, '
-              'pi_next: {}, q_targ: {}, mu: {}, reward: {}, '
-              'terminal: {}, target_q: {}, next_value: {}， q1: {}'.format(q1_pi, q2_pi, policy_state1, policy_state2, pi_next,
-                                                                   q1_targ, self.mu, self._rewards_ph, self._terminals_ph,
-                                                                          q_target, next_value, q1))
+              'tmux a: {}, q_targ: {}, mu: {}, reward: {}, '
+              'terminal: {}, target_q: {}, next_value: {}, '
+              'q1: {}, logp_pi: {}, min_q_pi: {}'.format(q1_pi, q2_pi, policy_state1, policy_state2, pi_next,
+                                                                   q1_targ, self.mu, self._rewards_ph[..., 0], self._terminals_ph[..., 0],
+                                                                          q_target, next_value, q1, logp_pi, min_q_pi))
         # assert q_target.shape.as_list() == [None, 1]
         # (self._Q_values,
         #  self._Q_losses,
@@ -467,7 +468,7 @@ class MOPO(RLAlgorithm):
 
 
         with tf.control_dependencies([train_value_op]):
-            target_update = tf.group([tf.assign(v_targ, self._tau * v_targ + (1 - self._tau) * v_main)
+            target_update = tf.group([tf.assign(v_targ, (1 - self._tau) * v_targ + self._tau * v_main)
                                       for v_main, v_targ in zip(get_vars('main'), get_vars('target'))])
 
         self.target_init = tf.group([tf.assign(v_targ, v_main)
