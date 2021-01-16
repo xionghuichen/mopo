@@ -273,6 +273,7 @@ class MOPO(RLAlgorithm):
         EPS = 1e-8
 
         def mlp(x, hidden_sizes=(32,), activation=tf.tanh, output_activation=None, kernel_initializer=None):
+            print(hidden_sizes)
             for h in hidden_sizes[:-1]:
                 x = tf.layers.dense(x, units=h, activation=activation, kernel_initializer=kernel_initializer)
             return tf.layers.dense(x, units=hidden_sizes[-1], activation=output_activation,
@@ -359,7 +360,7 @@ class MOPO(RLAlgorithm):
         alpha = tf.exp(log_alpha)
         if isinstance(self._target_entropy, Number):
             alpha_loss = -tf.reduce_mean(
-                log_alpha * tf.stop_gradient(logp_pi + self._target_entropy))
+                alpha * tf.stop_gradient(logp_pi + self._target_entropy))
 
             self._alpha_optimizer = tf.train.AdamOptimizer(
                 self._policy_lr, name='alpha_optimizer')
@@ -426,9 +427,15 @@ class MOPO(RLAlgorithm):
         next_value = min_next_Q - self._alpha * next_log_pis
 
         q_target = td_target(
-            reward=self._reward_scale * self._rewards_ph,
-            discount=self._discount, next_value=(1 - self._terminals_ph) * next_value)
+            reward=self._reward_scale * self._rewards_ph[..., 0],
+            discount=self._discount, next_value=(1 - self._terminals_ph[..., 0]) * next_value)
 
+
+        print('q1_pi: {}, q2_pi: {}, policy_state2: {}, policy_state1: {}, '
+              'pi_next: {}, q_targ: {}, mu: {}, reward: {}, '
+              'terminal: {}, target_q: {}, next_value: {}， q1: {}'.format(q1_pi, q2_pi, policy_state1, policy_state2, pi_next,
+                                                                   q1_targ, self.mu, self._rewards_ph, self._terminals_ph,
+                                                                          q_target, next_value, q1))
         # assert q_target.shape.as_list() == [None, 1]
         # (self._Q_values,
         #  self._Q_losses,
@@ -802,6 +809,7 @@ class MOPO(RLAlgorithm):
         if trained_enough: return
         log_buffer = []
         logs = {}
+        # print('[ DEBUG ]: {}'.format(self._training_batch()))
         for i in range(self._n_train_repeat):
             logs = self._do_training(
                 iteration=timestep,
