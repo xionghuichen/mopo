@@ -63,6 +63,8 @@ ALGORITHM_PARAMS_ADDITIONAL = {
                 "hidden_sizes": [256, 256],
                 "activation": tf.nn.relu,
                 "output_activation": None,
+                "lstm_hidden_unit": 128,
+                "embedding_size": 16
             }
         }
     },

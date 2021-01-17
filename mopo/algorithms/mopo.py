@@ -151,7 +151,7 @@ class MOPO(RLAlgorithm):
 
         self._training_environment = training_environment
         self._evaluation_environment = evaluation_environment
-        self.gru_state_dim = gru_state_dim
+        self.gru_state_dim = network_kwargs['lstm_hidden_unit']
         self.network_kwargs = network_kwargs
         self.adapt = True
         self.optim_alpha = False
@@ -345,6 +345,8 @@ class MOPO(RLAlgorithm):
                 policy_out, next_policy_hidden_out = tf.nn.dynamic_rnn(cells_policy, lstm_input,
                                                                        initial_state=pre_state_p,
                                                                        dtype=tf.float32, sequence_length=seq_len)
+                policy_out = mlp(policy_out, hidden_sizes=[self.network_kwargs['embedding_size']],
+                                 activation=tf.tanh, output_activation=tf.tanh)
                 policy_state = tf.concat([policy_out, x_ph], axis=-1)
 
             with tf.variable_scope("lstm_net_v", reuse=tf.AUTO_REUSE):
@@ -358,6 +360,8 @@ class MOPO(RLAlgorithm):
                 value_out, next_value_hidden_out = tf.nn.dynamic_rnn(cells_policy, lstm_input,
                                                                      initial_state=pre_state_v,
                                                                      dtype=tf.float32, sequence_length=seq_len)
+                value_out = mlp(value_out, hidden_sizes=[self.network_kwargs['embedding_size']],
+                                 activation=tf.tanh, output_activation=tf.tanh)
                 value_state = tf.concat([value_out, x_ph], axis=-1)
             return policy_state, value_state, next_policy_hidden_out, next_value_hidden_out, policy_out, value_out
 
@@ -365,10 +369,10 @@ class MOPO(RLAlgorithm):
             # input_x = tf.concat((self.x_ph, self._next_observations_ph[:, -1:, :]), axis=1)
             # input_lst_a = tf.concat((self._last_actions_ph, self._actions_ph[:, -1:, :]), axis=1)
             policy_state, value_state, self.next_policy_hidden_out, self.next_value_hidden_out, policy_out, value_out = lstm_emb(
-                self.x_ph, self._last_actions_ph, self._prev_state_p_ph, self._prev_state_v_ph)
+                self._observations_ph, self._last_actions_ph, self._prev_state_p_ph, self._prev_state_v_ph)
             policy_state_next, value_state_next, _, _, policy_out, value_out = lstm_emb(
-                self.self._next_observations_ph[:, -1:, :], self._actions_ph[:, -1:, :], policy_state,
-                value_state, tf.ones_like(self.seq_len))
+                self._next_observations_ph[:, -1:], self._actions_ph[:, -1:], self.next_policy_hidden_out,
+                self.next_value_hidden_out, tf.ones_like(self.seq_len))
             policy_state1, value_state1 = policy_state, value_state
             policy_state2, value_state2 = tf.concat((policy_state[:, 1:], policy_state_next), axis=1), \
                                           tf.concat((value_state[:, 1:], value_state_next), axis=1)
@@ -545,7 +549,8 @@ class MOPO(RLAlgorithm):
                 return pi, hidden
 
     def make_init_hidden(self, batch_size=1):
-        return (np.zeros((batch_size, self.gru_state_dim)), np.zeros(batch_size, 1, self._action_shape[0]))
+        res = (np.zeros((batch_size, self.gru_state_dim)), np.zeros((batch_size, 1, self._action_shape[0])))
+        return res
 
     def _train(self):
         
