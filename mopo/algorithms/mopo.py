@@ -153,7 +153,7 @@ class MOPO(RLAlgorithm):
         self._evaluation_environment = evaluation_environment
         self.gru_state_dim = gru_state_dim
         self.network_kwargs = network_kwargs
-        self.adapt = adapt
+        self.adapt = True
         self.optim_alpha = False
         # self._policy = policy
 
@@ -225,6 +225,12 @@ class MOPO(RLAlgorithm):
         )
 
         self._actions_ph = tf.placeholder(
+            tf.float32,
+            shape=(None, None, *self._action_shape),
+            name='actions',
+        )
+
+        self._last_actions_ph = tf.placeholder(
             tf.float32,
             shape=(None, None, *self._action_shape),
             name='actions',
@@ -324,7 +330,7 @@ class MOPO(RLAlgorithm):
                 q2 = vf_mlp(tf.concat([x_v, a], axis=-1))
             return mu, pi, logp_pi, q1, q2, std
 
-        def lstm_emb(x_ph, a_ph, pre_state_p, pre_state_v):
+        def lstm_emb(x_ph, a_ph, pre_state_p, pre_state_v, seq_len=self.seq_len):
             state_acs = tf.concat([x_ph, a_ph], axis=-1)
 
             with tf.variable_scope("lstm_net_p", reuse=tf.AUTO_REUSE):
@@ -338,7 +344,7 @@ class MOPO(RLAlgorithm):
                 cells_policy = tf.nn.rnn_cell.GRUCell(num_units=self.network_kwargs["lstm_hidden_unit"])
                 policy_out, next_policy_hidden_out = tf.nn.dynamic_rnn(cells_policy, lstm_input,
                                                                        initial_state=pre_state_p,
-                                                                       dtype=tf.float32, sequence_length=self.seq_len)
+                                                                       dtype=tf.float32, sequence_length=seq_len)
                 policy_state = tf.concat([policy_out, x_ph], axis=-1)
 
             with tf.variable_scope("lstm_net_v", reuse=tf.AUTO_REUSE):
@@ -351,19 +357,24 @@ class MOPO(RLAlgorithm):
                 cells_policy = tf.nn.rnn_cell.GRUCell(num_units=self.network_kwargs["lstm_hidden_unit"])
                 value_out, next_value_hidden_out = tf.nn.dynamic_rnn(cells_policy, lstm_input,
                                                                      initial_state=pre_state_v,
-                                                                     dtype=tf.float32, sequence_length=self.seq_len)
+                                                                     dtype=tf.float32, sequence_length=seq_len)
                 value_state = tf.concat([value_out, x_ph], axis=-1)
             return policy_state, value_state, next_policy_hidden_out, next_value_hidden_out, policy_out, value_out
 
         if self.adapt:
-            policy_state, value_state, next_policy_hidden_out, next_value_hidden_out, policy_out, value_out = lstm_emb(
-                self.x_ph, self.last_acs_ph, self._prev_state_p_ph, self._prev_state_v_ph)
-            policy_state1, value_state1 = policy_state[:, :-1], value_state[:, :-1]
-            policy_state2, value_state2 = policy_state[:, 1:], value_state[:, 1:]
-            action_ph = self._actions_ph[:, :-1]
-            reward_ph = self._rewards_ph[:, :-1]
-            done_ph = self._terminals_ph[:, :-1]
-
+            # input_x = tf.concat((self.x_ph, self._next_observations_ph[:, -1:, :]), axis=1)
+            # input_lst_a = tf.concat((self._last_actions_ph, self._actions_ph[:, -1:, :]), axis=1)
+            policy_state, value_state, self.next_policy_hidden_out, self.next_value_hidden_out, policy_out, value_out = lstm_emb(
+                self.x_ph, self._last_actions_ph, self._prev_state_p_ph, self._prev_state_v_ph)
+            policy_state_next, value_state_next, _, _, policy_out, value_out = lstm_emb(
+                self.self._next_observations_ph[:, -1:, :], self._actions_ph[:, -1:, :], policy_state,
+                value_state, tf.ones_like(self.seq_len))
+            policy_state1, value_state1 = policy_state, value_state
+            policy_state2, value_state2 = tf.concat((policy_state[:, 1:], policy_state_next), axis=1), \
+                                          tf.concat((value_state[:, 1:], value_state_next), axis=1)
+            action_ph = self._actions_ph
+            reward_ph = self._rewards_ph
+            done_ph = self._terminals_ph
         else:
             policy_state1 = self._observations_ph
             value_state1 = self._observations_ph
@@ -371,6 +382,8 @@ class MOPO(RLAlgorithm):
             action_ph = self._actions_ph
             reward_ph = self._rewards_ph
             done_ph = self._terminals_ph
+            self.next_value_hidden_out = self._prev_state_v_ph
+            self.next_policy_hidden_out = self._prev_state_p_ph
 
         ac_kwargs = {
             "hidden_sizes": self.network_kwargs["hidden_sizes"],
@@ -510,15 +523,18 @@ class MOPO(RLAlgorithm):
         self._session.run(self.target_init)
 
     def get_action_meta(self, state, hidden, deterministic=False):
+        assert isinstance(hidden, tuple), 'hidden: (hidden state of policy, lst_action)'
         with self._session.as_default():
             state_dim = len(np.shape(state))
             if state_dim == 2:
                 state = state[None]
             feed_dict = {
                 self._observations_ph: state,
-                self._prev_state_p_ph: hidden
+                self._prev_state_p_ph: hidden[0],
+                self._last_actions_ph: hidden[1]
             }
-            mu, pi = self._session.run([self.mu, self.pi], feed_dict=feed_dict)
+            mu, pi, next_hidden = self._session.run([self.mu, self.pi, self.next_policy_hidden_out], feed_dict=feed_dict)
+            hidden = (pi, next_hidden)
             if state_dim == 2:
                 mu = mu[0]
                 pi = pi[0]
@@ -529,7 +545,7 @@ class MOPO(RLAlgorithm):
                 return pi, hidden
 
     def make_init_hidden(self, batch_size=1):
-        return np.zeros((batch_size, self.gru_state_dim))
+        return (np.zeros((batch_size, self.gru_state_dim)), np.zeros(batch_size, 1, self._action_shape[0]))
 
     def _train(self):
         
