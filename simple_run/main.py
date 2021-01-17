@@ -18,11 +18,12 @@ def get_variant_spec(command_line_args):
     # import pdb
     # pdb.set_trace()
     variant_spec = get_variant_spec(command_line_args, params)
+    variant_spec["info"] = command_line_args.info
     return variant_spec
 
 
 def get_parser():
-    from examples.utils import get_parser
+    from simple_run.utils import get_parser
     parser = get_parser()
     return parser
 import os
@@ -185,7 +186,7 @@ def main():
     variant = copy.deepcopy(variant)
 
     tester.set_hyper_param(**variant)
-    tester.add_record_param(['run_params.seed'])
+    tester.add_record_param(['run_params.seed', 'info'])
     tester.configure(task_name='policy_learn', private_config_path=os.path.join(get_package_path(), 'rla_config.yaml'),
                      run_file='main.py', log_root=get_package_path())
     tester.log_files_gen()

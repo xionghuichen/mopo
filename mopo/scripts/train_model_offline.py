@@ -26,7 +26,7 @@ def main(args):
     tester.print_args()
 
     env = gym.make('{}-{}-v0'.format(args.env, args.quality))
-    dataset = env.get_dataset()
+    dataset = d4rl.qlearning_dataset(env) # env.qlearning_dataset()
     obs_dim = dataset['observations'].shape[1]
     act_dim = dataset['actions'].shape[1]
 
@@ -38,8 +38,7 @@ def main(args):
     dataset['rewards'] = np.expand_dims(dataset['rewards'], 1)
     train_inputs, train_outputs = format_samples_for_training(dataset)
     model.train(train_inputs, train_outputs,
-                batch_size=args.batch_size, holdout_ratio=args.holdout_ratio,
-                max_epochs=args.max_epochs, max_t=args.max_t)
+                batch_size=args.batch_size, holdout_ratio=args.holdout_ratio, max_epochs=args.max_epochs, max_t=args.max_t)
     model.save(args.model_dir, 0)
 
 # python mopo/scripts/train_model_offline.py --num-networks 7 --separate-mean-var --env halfcheetah --quality medium-expert
@@ -55,8 +54,8 @@ if __name__ == '__main__':
     parser.add_argument('--info', default="")
     parser.add_argument('--seed', default=1, type=int)
     parser.add_argument('--model-type', default='mlp')
-    parser.add_argument('--separate-mean-var', action='store_false')
-    parser.add_argument('--num-networks', default=100, type=int)
+    parser.add_argument('--separate-mean-var', action='store_true')
+    parser.add_argument('--num-networks', default=7, type=int)
     parser.add_argument('--num-elites', default=5, type=int)
     parser.add_argument('--hidden-dim', default=200, type=int)
     parser.add_argument('--batch-size', default=256, type=int)
