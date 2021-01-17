@@ -359,38 +359,10 @@ class MOPO(RLAlgorithm):
             dtype=tf.float32,
             initializer=0.0)
         alpha = tf.exp(log_alpha)
-        if isinstance(self._target_entropy, Number):
-            alpha_loss = -tf.reduce_mean(
-                log_alpha * tf.stop_gradient(logp_pi + self._target_entropy))
-
-            self._alpha_optimizer = tf.train.AdamOptimizer(
-                self._policy_lr, name='alpha_optimizer')
-            self._alpha_train_op = self._alpha_optimizer.minimize(
-                loss=alpha_loss, var_list=[log_alpha])
-
-            self._training_ops.update({
-                'temperature_alpha': self._alpha_train_op
-            })
-        else:
-            self._alpha_train_op = tf.no_op()
 
         self._alpha = alpha
         assert self._action_prior == 'uniform'
         policy_prior_log_probs = 0.0
-        # if self._action_prior == 'normal':
-        #     policy_prior = tf.contrib.distributions.MultivariateNormalDiag(
-        #         loc=tf.zeros(self._action_shape),
-        #         scale_diag=tf.ones(self._action_shape))
-        #     policy_prior_log_probs = policy_prior.log_prob(self.pi)
-        # elif self._action_prior == 'uniform':
-        #     policy_prior_log_probs = 0.0
-        # else:
-        #     raise NotImplementedError
-
-        # Q_log_targets = tuple(
-        #     Q([self._observations_ph, actions])
-        #     for Q in self._Qs)
-        # min_Q_log_target = tf.reduce_min(Q_log_targets, axis=0)
 
         min_q_pi = tf.minimum(q1_pi, q2_pi)
         min_q_targ = tf.minimum(q1_targ, q2_targ)
@@ -401,28 +373,10 @@ class MOPO(RLAlgorithm):
         else:
             raise NotImplementedError
 
-        # assert policy_kl_losses.shape.as_list() == [None, 1]
 
         policy_loss = tf.reduce_mean(policy_kl_losses)
 
-        # self._policy_optimizer = tf.train.AdamOptimizer(
-        #     learning_rate=self._policy_lr,
-        #     name="policy_optimizer")
-        # policy_train_op = tf.contrib.layers.optimize_loss(
-        #     policy_loss,
-        #     self.global_step,
-        #     learning_rate=self._policy_lr,
-        #     optimizer=self._policy_optimizer,
-        #     variables=self._policy.trainable_variables,
-        #     increment_global_step=False,
-        #     summaries=(
-        #         "loss", "gradients", "gradient_norm", "global_gradient_norm"
-        #     ) if self._tf_summaries else ())
-        # self._training_ops.update({'policy_train_op': policy_train_op})
-
-
         # Q
-        # next_actions = self._policy.actions([self._next_observations_ph])
         next_log_pis = logp_pi_next
         min_next_Q = min_q_targ
         next_value = min_next_Q - self._alpha * next_log_pis
@@ -446,46 +400,57 @@ class MOPO(RLAlgorithm):
         self.Q1 = q1
         self.Q2 = q2
         q_target = tf.stop_gradient(q_target)
-        q1_loss = tf.reduce_mean(tf.square(q_target - q1))
-        q2_loss = tf.reduce_mean(tf.square(q_target - q2))
-        value_loss = q1_loss + q2_loss
-        self.Q_loss = (tf.square(q_target - q1) + tf.square(q_target - q2)) / 2
+        q1_loss = tf.losses.mean_squared_error(labels=q_target, predictions=q1, weights=0.5)
+        q2_loss = tf.losses.mean_squared_error(labels=q_target, predictions=q2, weights=0.5)
+        self.Q_loss = (q1_loss + q2_loss) / 2
 
-        value_optimizer = tf.train.AdamOptimizer(learning_rate=self._Q_lr)
+        value_optimizer1 = tf.train.AdamOptimizer(learning_rate=self._Q_lr)
+        value_optimizer2 = tf.train.AdamOptimizer(learning_rate=self._Q_lr)
         print('[ DEBUG ]: Q lr is {}'.format(self._Q_lr))
-        value_params = get_vars('main/q1') + get_vars('main/q2')
-        if self.adapt:
-            value_params += get_vars("lstm_net_v")
 
-        grads, variables = zip(*value_optimizer.compute_gradients(value_loss, var_list=value_params))
-        grads, q_global_norm = tf.clip_by_global_norm(grads, 2000)
-        train_value_op = value_optimizer.apply_gradients(zip(grads, variables))
 
+        # train_value_op = value_optimizer.apply_gradients(zip(grads, variables))
         pi_optimizer = tf.train.AdamOptimizer(learning_rate=self._policy_lr)
         print('[ DEBUG ]: policy lr is {}'.format(self._policy_lr))
+
         pi_var_list = get_vars('main/pi')
         if self.adapt:
             pi_var_list += get_vars("lstm_net_pi")
+        train_pi_op = pi_optimizer.minimize(policy_loss, var_list=pi_var_list)
+        pgrads, variables = zip(*pi_optimizer.compute_gradients(policy_loss, var_list=pi_var_list))
 
-        grads, variables = zip(*pi_optimizer.compute_gradients(policy_loss, var_list=pi_var_list))
-        grads, pi_global_norm = tf.clip_by_global_norm(grads, 2000)
-        train_pi_op = pi_optimizer.apply_gradients(zip(grads, variables))
-        # train_pi_op = value_optimizer.minimize(value_loss, var_list=value_params)
+        _, pi_global_norm = tf.clip_by_global_norm(pgrads, 2000)
 
-        # train_pi_op = pi_optimizer.minimize(policy_loss, var_list=pi_var_list)
-        # _, pi_global_norm = tf.clip_by_global_norm(grads, 2000)
+        with tf.control_dependencies([train_pi_op]):
+            value_params1 = get_vars('main/q1')
+            value_params2 = get_vars('main/q2')
+            if self.adapt:
+                value_params1 += get_vars("lstm_net_v")
+                value_params2 += get_vars("lstm_net_v")
+
+            grads, variables = zip(*value_optimizer1.compute_gradients(self.Q_loss, var_list=value_params1))
+            _, q_global_norm = tf.clip_by_global_norm(grads, 2000)
+            train_value_op1 = value_optimizer1.minimize(q1_loss, var_list=value_params1)
+            train_value_op2 = value_optimizer2.minimize(q2_loss, var_list=value_params2)
+            with tf.control_dependencies([train_value_op1, train_value_op2]):
+                if isinstance(self._target_entropy, Number):
+                    alpha_loss = -tf.reduce_mean(
+                        log_alpha * tf.stop_gradient(logp_pi + self._target_entropy))
+                    self._alpha_optimizer = tf.train.AdamOptimizer(self._policy_lr, name='alpha_optimizer')
+                    self._alpha_train_op = self._alpha_optimizer.minimize(
+                        loss=alpha_loss, var_list=[log_alpha])
+                else:
+                    self._alpha_train_op = tf.no_op()
 
 
-        with tf.control_dependencies([train_value_op]):
-            print('[ DEBUG ] tau is: ', self._tau)
-            target_update = tf.group([tf.assign(v_targ, (1 - self._tau) * v_targ + self._tau * v_main)
-                                      for v_main, v_targ in zip(get_vars('main'), get_vars('target'))])
+        self.target_update = tf.group([tf.assign(v_targ, (1 - self._tau) * v_targ + self._tau * v_main)
+                                  for v_main, v_targ in zip(get_vars('main'), get_vars('target'))])
 
         self.target_init = tf.group([tf.assign(v_targ, v_main)
                                      for v_main, v_targ in zip(get_vars('main'), get_vars('target'))])
 
         # construct opt
-        self._training_ops = [tf.group((train_value_op, train_pi_op, target_update, self._alpha_train_op)),
+        self._training_ops = [tf.group((train_value_op2, train_value_op1, train_pi_op, self._alpha_train_op)),
                               { "sac_pi/pi_global_norm": pi_global_norm,
                                 "sac_Q/q_global_norm": q_global_norm,
                                 "Q/q1_loss": q1_loss,
@@ -875,14 +840,17 @@ class MOPO(RLAlgorithm):
         feed_dict = self._get_feed_dict(iteration, batch)
 
         res = self._session.run(self._training_ops, feed_dict)
+        if iteration % self._target_update_interval == 0:
+            # Run target ops here.
+            self._update_target()
         logs = {k: np.mean(res[1][k]) for k in res[1]}
         # for k, v in logs.items():
         #     print("[ DEBUG ] k: {}, v: {}".format(k, v))
         #     self._writer.add_scalar(k, v, iteration)
         return logs
-        # if iteration % self._target_update_interval == 0:
-        #     # Run target ops here.
-        #     self._update_target()
+
+    def _update_target(self):
+        self._session.run(self.target_update)
 
     def _get_feed_dict(self, iteration, batch):
         """Construct TensorFlow feed_dict from sample batch."""

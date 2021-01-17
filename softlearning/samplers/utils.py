@@ -6,7 +6,7 @@ from softlearning import replay_pools
 from . import (
     dummy_sampler,
     extra_policy_info_sampler,
-    remote_sampler,
+    # remote_sampler,
     base_sampler,
     simple_sampler)
 
@@ -16,7 +16,7 @@ def get_sampler_from_variant(variant, *args, **kwargs):
         'DummySampler': dummy_sampler.DummySampler,
         'ExtraPolicyInfoSampler': (
             extra_policy_info_sampler.ExtraPolicyInfoSampler),
-        'RemoteSampler': remote_sampler.RemoteSampler,
+        # 'RemoteSampler': remote_sampler.RemoteSampler,
         'Sampler': base_sampler.BaseSampler,
         'SimpleSampler': simple_sampler.SimpleSampler,
     }
