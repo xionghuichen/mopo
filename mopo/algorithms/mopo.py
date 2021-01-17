@@ -531,25 +531,34 @@ class MOPO(RLAlgorithm):
         with self._session.as_default():
             state_dim = len(np.shape(state))
             if state_dim == 2:
-                state = state[None]
+                state = np.expand_dims(state, 1)
             feed_dict = {
                 self._observations_ph: state,
                 self._prev_state_p_ph: hidden[0],
-                self._last_actions_ph: hidden[1]
+                self._last_actions_ph: hidden[1],
+                self.seq_len:[1] * state.shape[0]
+
             }
             mu, pi, next_hidden = self._session.run([self.mu, self.pi, self.next_policy_hidden_out], feed_dict=feed_dict)
-            hidden = (pi, next_hidden)
+            mu_origin, pi_origin = mu, pi
             if state_dim == 2:
-                mu = mu[0]
-                pi = pi[0]
+                mu = mu[:, 0]
+                pi = pi[:, 0]
+
             # print(f"[ DEBUG ]: pi_shape: {pi.shape}, mu_shape: {mu.shape}")
             if deterministic:
+                hidden = (next_hidden, mu_origin)
                 return mu, hidden
             else:
+                hidden = (next_hidden, pi_origin)
                 return pi, hidden
 
     def make_init_hidden(self, batch_size=1):
         res = (np.zeros((batch_size, self.gru_state_dim)), np.zeros((batch_size, 1, self._action_shape[0])))
+        return res
+
+    def mask_hidden(self, hidden, mask):
+        res = (hidden[0][mask], hidden[1][mask])
         return res
 
     def _train(self):
@@ -621,7 +630,8 @@ class MOPO(RLAlgorithm):
                     self._set_rollout_length()
                     self._reallocate_model_pool()
                     model_rollout_metrics = self._rollout_model(rollout_batch_size=self._rollout_batch_size,
-                                                                deterministic=self._deterministic)
+                                                                deterministic=self._deterministic,
+                                                                mask_hidden=self.mask_hidden)
                     model_metrics.update(model_rollout_metrics)
                     
                     gt.stamp('epoch_rollout_model')
@@ -785,15 +795,16 @@ class MOPO(RLAlgorithm):
             model_metrics = self._model.train(train_inputs, train_outputs, **kwargs)
         return model_metrics
 
-    def _rollout_model(self, rollout_batch_size, **kwargs):
+    def _rollout_model(self, rollout_batch_size, mask_hidden, **kwargs):
         print('[ Model Rollout ] Starting | Epoch: {} | Rollout length: {} | Batch size: {} | Type: {}'.format(
             self._epoch, self._rollout_length, rollout_batch_size, self._model_type
         ))
         batch = self.sampler.random_batch(rollout_batch_size)
         obs = batch['observations']
         steps_added = []
+        hidden = self.make_init_hidden(obs.shape[0])
         for i in range(self._rollout_length):
-            hidden = self.make_init_hidden(1)
+            # print('[ DEBUG ] obs shape: {}'.format(obs.shape))
             if not self._rollout_random:
                 # act = self._policy.actions_np(obs)
                 act, hidden = self.get_action_meta(obs, hidden)
@@ -801,7 +812,7 @@ class MOPO(RLAlgorithm):
                 # act_ = self._policy.actions_np(obs)
                 act_, hidden = self.get_action_meta(obs, hidden)
                 act = np.random.uniform(low=-1, high=1, size=act_.shape)
-
+            print('[ DEBUG ] obs shape: {}, act shape: {}'.format(obs.shape, act.shape))
             if self._model_type == 'identity':
                 next_obs = obs
                 rew = np.zeros((len(obs), 1))
@@ -821,7 +832,7 @@ class MOPO(RLAlgorithm):
                 break
 
             obs = next_obs[nonterm_mask]
-
+            hidden = mask_hidden(hidden, nonterm_mask)
         mean_rollout_length = sum(steps_added) / rollout_batch_size
         rollout_stats = {'mean_rollout_length': mean_rollout_length}
         print('[ Model Rollout ] Added: {:.1e} | Model pool: {:.1e} (max {:.1e}) | Length: {} | Train rep: {}'.format(
