@@ -58,7 +58,7 @@ ALGORITHM_PARAMS_ADDITIONAL = {
             'action_prior': 'uniform',
             'n_initial_exploration_steps': int(5000),
             "model_load_dir": os.path.join(get_package_path(), 'models'),
-            # "num_networks": 100,
+            "num_networks": 7,
             "network_kwargs": {
                 "hidden_sizes": [256, 256],
                 "activation": tf.nn.relu,

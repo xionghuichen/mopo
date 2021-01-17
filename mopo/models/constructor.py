@@ -45,7 +45,7 @@ def construct_model(obs_dim=11, act_dim=3, rew_dim=1, hidden_dim=200, num_networ
 
 def format_samples_for_training(samples):
 	terminals = samples["terminals"][:-1]
-	terminals_idx = np.where(~terminals)[0]
+	terminals_idx = np.where(terminals)[0]
 	obs = samples['observations'][:-1]
 	act = samples['actions'][:-1]
 	next_obs = samples['observations'][1:]
