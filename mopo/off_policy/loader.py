@@ -23,10 +23,25 @@ def restore_pool(replay_pool, experiment_root, max_size, save_path=None):
 def restore_pool_d4rl(replay_pool, name):
     import gym
     import d4rl
+    env = gym.make(name)
+    mask_steps = env._max_episode_steps - 1
     data = d4rl.qlearning_dataset(gym.make(name))
     data['rewards'] = np.expand_dims(data['rewards'], axis=1)
     data['terminals'] = np.expand_dims(data['terminals'], axis=1)
+    data['last_actions'] = np.concatenate((np.zeros((1, data['actions'].shape[1])), data['actions'][:-1, :]), axis=0).copy()
+    # print(data['actions'] - data['last_actions'])
+    data['first_step'] = np.zeros_like(data['terminals'])
+    data['end_step'] = np.zeros_like(data['terminals'])
     print('[ DEBUG ]: key in data: {}'.format(list(data.keys())))
+    for i in range(data['observations'].shape[0]):
+        flag = True
+        if i >= 1:
+            flag = (data['observations'][i] == data['next_observations'][i-1]).all()
+
+        if not flag:
+            data['last_actions'][i][:] = 0
+            data['first_step'][i][:] = 1
+            data['end_step'][i-1][:] = 1
     replay_pool.add_samples(data)
 
 
