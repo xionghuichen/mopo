@@ -50,6 +50,10 @@ class SimpleReplayPool(FlexibleReplayPool):
                 'shape': self._action_space.shape,
                 'dtype': 'float32'
             },
+            'last_actions': {
+                'shape': self._action_space.shape,
+                'dtype': 'float32'
+            },
             'rewards': {
                 'shape': (1, ),
                 'dtype': 'float32'
@@ -58,6 +62,10 @@ class SimpleReplayPool(FlexibleReplayPool):
             'terminals': {
                 'shape': (1, ),
                 'dtype': 'bool'
+            },
+            'valid': {
+                'shape': (1, ),
+                'dtype': 'float32'
             },
             'observations': {
                 'shape': active_observation_shape,

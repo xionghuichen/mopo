@@ -153,7 +153,7 @@ class MOPO(RLAlgorithm):
         self._evaluation_environment = evaluation_environment
         self.gru_state_dim = network_kwargs['lstm_hidden_unit']
         self.network_kwargs = network_kwargs
-        self.adapt = True
+        self.adapt = False
         self.optim_alpha = False
         # self._policy = policy
 
@@ -233,7 +233,7 @@ class MOPO(RLAlgorithm):
         self._last_actions_ph = tf.placeholder(
             tf.float32,
             shape=(None, None, *self._action_shape),
-            name='actions',
+            name='lst_actions',
         )
 
         self._prev_state_p_ph = tf.placeholder(
@@ -261,6 +261,12 @@ class MOPO(RLAlgorithm):
             name='terminals',
         )
 
+        self._valid_ph = tf.placeholder(
+            tf.float32,
+            shape=(None, None, 1),
+            name='valid',
+        )
+
         if self._store_extra_policy_info:
             self._log_pis_ph = tf.placeholder(
                 tf.float32,
@@ -277,7 +283,7 @@ class MOPO(RLAlgorithm):
         LOG_STD_MAX = 2
         LOG_STD_MIN = -20
         EPS = 1e-8
-
+        valid_num = tf.reduce_sum(tf.reduce_sum(self._valid_ph[:, :, 0]))
         def mlp(x, hidden_sizes=(32,), activation=tf.tanh, output_activation=None, kernel_initializer=None):
             print('[ DEBUG ], hidden layer size: ', hidden_sizes)
             for h in hidden_sizes[:-1]:
@@ -435,7 +441,7 @@ class MOPO(RLAlgorithm):
             raise NotImplementedError
 
 
-        policy_loss = tf.reduce_mean(policy_kl_losses)
+        policy_loss = tf.reduce_sum(policy_kl_losses * self._valid_ph[:, :, 0]) / valid_num
 
         # Q
         next_log_pis = logp_pi_next
@@ -447,12 +453,7 @@ class MOPO(RLAlgorithm):
             discount=self._discount, next_value=(1 - done_ph[..., 0]) * next_value)
 
 
-        print('q1_pi: {}, q2_pi: {}, policy_state2: {}, policy_state1: {}, '
-              'tmux a: {}, q_targ: {}, mu: {}, reward: {}, '
-              'terminal: {}, target_q: {}, next_value: {}, '
-              'q1: {}, logp_pi: {}, min_q_pi: {}'.format(q1_pi, q2_pi, policy_state1, policy_state2, pi_next,
-                                                                   q1_targ, self.mu, self._rewards_ph[..., 0], self._terminals_ph[..., 0],
-                                                                          q_target, next_value, q1, logp_pi, min_q_pi))
+
         # assert q_target.shape.as_list() == [None, 1]
         # (self._Q_values,
         #  self._Q_losses,
@@ -461,12 +462,22 @@ class MOPO(RLAlgorithm):
         self.Q1 = q1
         self.Q2 = q2
         q_target = tf.stop_gradient(q_target)
-        q1_loss = tf.losses.mean_squared_error(labels=q_target, predictions=q1, weights=0.5)
-        q2_loss = tf.losses.mean_squared_error(labels=q_target, predictions=q2, weights=0.5)
+        q1_loss = tf.reduce_sum(tf.square((q_target - q1) * self._valid_ph[:, :, 0])) * 0.5 / valid_num
+        q2_loss = tf.reduce_sum(tf.square((q_target - q2) * self._valid_ph[:, :, 0])) * 0.5 / valid_num
+
+        # q1_loss = tf.losses.mean_squared_error(labels=q_target, predictions=q1, weights=0.5)
+        # q2_loss = tf.losses.mean_squared_error(labels=q_target, predictions=q2, weights=0.5)
         self.Q_loss = (q1_loss + q2_loss) / 2
 
         value_optimizer1 = tf.train.AdamOptimizer(learning_rate=self._Q_lr)
         value_optimizer2 = tf.train.AdamOptimizer(learning_rate=self._Q_lr)
+        print('q1_pi: {}, q2_pi: {}, policy_state2: {}, policy_state1: {}, '
+              'tmux a: {}, q_targ: {}, mu: {}, reward: {}, '
+              'terminal: {}, target_q: {}, next_value: {}, '
+              'q1: {}, logp_pi: {}, min_q_pi: {}, q1_loss: {}'.format(q1_pi, q2_pi, policy_state1, policy_state2, pi_next,
+                                                         q1_targ, self.mu, self._rewards_ph[..., 0],
+                                                         self._terminals_ph[..., 0],
+                                                         q_target, next_value, q1, logp_pi, min_q_pi, q1_loss))
         print('[ DEBUG ]: Q lr is {}'.format(self._Q_lr))
 
 
@@ -495,8 +506,8 @@ class MOPO(RLAlgorithm):
             train_value_op2 = value_optimizer2.minimize(q2_loss, var_list=value_params2)
             with tf.control_dependencies([train_value_op1, train_value_op2]):
                 if isinstance(self._target_entropy, Number):
-                    alpha_loss = -tf.reduce_mean(
-                        log_alpha * tf.stop_gradient(logp_pi + self._target_entropy))
+                    alpha_loss = -tf.reduce_sum((
+                        log_alpha * tf.stop_gradient(logp_pi + self._target_entropy)) * self._valid_ph[:, :, 0]) / valid_num
                     self._alpha_optimizer = tf.train.AdamOptimizer(self._policy_lr, name='alpha_optimizer')
                     self._alpha_train_op = self._alpha_optimizer.minimize(
                         loss=alpha_loss, var_list=[log_alpha])
@@ -521,7 +532,8 @@ class MOPO(RLAlgorithm):
                                 "sac_pi/alpha": alpha,
                                 "sac_pi/pi_entropy": pi_entropy,
                                 "sac_pi/logp_pi": logp_pi,
-                                "sac_pi/std": logp_pi, }]
+                                "sac_pi/std": logp_pi,
+                                "sac_pi/valid_num": valid_num}]
 
         self._session.run(tf.global_variables_initializer())
         self._session.run(self.target_init)
@@ -803,8 +815,10 @@ class MOPO(RLAlgorithm):
         obs = batch['observations']
         steps_added = []
         hidden = self.make_init_hidden(obs.shape[0])
+        current_nonterm = np.ones((len(obs)), dtype=bool)
         for i in range(self._rollout_length):
             # print('[ DEBUG ] obs shape: {}'.format(obs.shape))
+            lst_action = hidden[1]
             if not self._rollout_random:
                 # act = self._policy.actions_np(obs)
                 act, hidden = self.get_action_meta(obs, hidden)
@@ -812,7 +826,7 @@ class MOPO(RLAlgorithm):
                 # act_ = self._policy.actions_np(obs)
                 act_, hidden = self.get_action_meta(obs, hidden)
                 act = np.random.uniform(low=-1, high=1, size=act_.shape)
-            print('[ DEBUG ] obs shape: {}, act shape: {}'.format(obs.shape, act.shape))
+            print('[ DEBUG ] obs shape: {}, act shape: {}, non term number: {}'.format(obs.shape, act.shape, current_nonterm.sum()))
             if self._model_type == 'identity':
                 next_obs = obs
                 rew = np.zeros((len(obs), 1))
@@ -822,17 +836,21 @@ class MOPO(RLAlgorithm):
                 # print("act: {}, obs: {}".format(act.shape, obs.shape))
                 next_obs, rew, term, info = self.fake_env.step(obs, act, **kwargs)
             steps_added.append(len(obs))
-
-            samples = {'observations': obs, 'actions': act, 'next_observations': next_obs, 'rewards': rew, 'terminals': term}
-            self._model_pool.add_samples(samples)
-
             nonterm_mask = ~term.squeeze(-1)
+            assert current_nonterm.shape == nonterm_mask.shape
+            current_nonterm = current_nonterm & nonterm_mask
+            print('size of last action: ', lst_action.shape, obs.shape, lst_action.squeeze(1).shape)
+            samples = {'observations': obs, 'actions': act, 'next_observations': next_obs,
+                       'rewards': rew, 'terminals': term,
+                       'last_actions': lst_action.squeeze(1), 'valid': current_nonterm.reshape(-1, 1)}
+            self._model_pool.add_samples(samples)
             if nonterm_mask.sum() == 0:
-                print('[ Model Rollout ] Breaking early: {} | {} / {}'.format(i, nonterm_mask.sum(), nonterm_mask.shape))
+                print(
+                    '[ Model Rollout ] Breaking early: {} | {} / {}'.format(i, nonterm_mask.sum(), nonterm_mask.shape))
                 break
 
-            obs = next_obs[nonterm_mask]
-            hidden = mask_hidden(hidden, nonterm_mask)
+            # obs = next_obs[nonterm_mask]
+            # hidden = mask_hidden(hidden, nonterm_mask)
         mean_rollout_length = sum(steps_added) / rollout_batch_size
         rollout_stats = {'mean_rollout_length': mean_rollout_length}
         print('[ Model Rollout ] Added: {:.1e} | Model pool: {:.1e} (max {:.1e}) | Length: {} | Train rep: {}'.format(
@@ -938,6 +956,7 @@ class MOPO(RLAlgorithm):
             self._next_observations_ph: resize(batch['next_observations']),
             self._rewards_ph: resize(batch['rewards']),
             self._terminals_ph: resize(batch['terminals']),
+            self._valid_ph: resize(batch['valid'])
         }
 
         if self._store_extra_policy_info:

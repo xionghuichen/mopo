@@ -27,6 +27,7 @@ class SimpleSampler(BaseSampler):
     def _process_observations(self,
                               observation,
                               action,
+                              last_action,
                               reward,
                               terminal,
                               next_observation,
@@ -34,9 +35,11 @@ class SimpleSampler(BaseSampler):
         processed_observation = {
             'observations': observation,
             'actions': action,
+            'last_actions': last_action,
             'rewards': [reward],
             'terminals': [terminal],
             'next_observations': next_observation,
+            'valid': [1],
             'infos': info,
         }
 
@@ -49,7 +52,7 @@ class SimpleSampler(BaseSampler):
             if hasattr(self.env.unwrapped, "state_vector"):
                 self._reset_state_vector = self.env.unwrapped.state_vector()
             ####
-
+        lst_action = self.hidden[1]
         action, self.hidden = self.get_action(self.env.convert_to_active_observation(
                 self._current_observation)[None], self.hidden)
         action = action[0]
@@ -58,13 +61,14 @@ class SimpleSampler(BaseSampler):
         self._path_length += 1
         self._path_return += reward
         self._total_samples += 1
-
+        # print(lst_action.shape, lst_action.squeeze(1).shape, action.shape)
         processed_sample = self._process_observations(
             observation=self._current_observation,
             action=action,
             reward=reward,
             terminal=terminal,
             next_observation=next_observation,
+            last_action=lst_action.squeeze(1).squeeze(0),
             info=info,
         )
 

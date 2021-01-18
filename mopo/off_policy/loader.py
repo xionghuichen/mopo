@@ -32,6 +32,7 @@ def restore_pool_d4rl(replay_pool, name):
     # print(data['actions'] - data['last_actions'])
     data['first_step'] = np.zeros_like(data['terminals'])
     data['end_step'] = np.zeros_like(data['terminals'])
+    data['valid'] = np.ones_like(data['terminals'])
     print('[ DEBUG ]: key in data: {}'.format(list(data.keys())))
     for i in range(data['observations'].shape[0]):
         flag = True

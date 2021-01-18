@@ -57,7 +57,6 @@ class FlexibleReplayPool(ReplayPool):
     def add_samples(self, samples):
         field_names = list(samples.keys())
         num_samples = samples[field_names[0]].shape[0]
-
         index = np.arange(
             self._pointer, self._pointer + num_samples) % self._max_size
         # print(self.field_names)
