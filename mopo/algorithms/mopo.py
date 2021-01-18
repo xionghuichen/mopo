@@ -14,7 +14,7 @@ import tensorflow as tf
 from tensorflow.python.training import training_util
 
 from softlearning.algorithms.rl_algorithm import RLAlgorithm
-from softlearning.replay_pools.simple_replay_pool import SimpleReplayPool
+from softlearning.replay_pools.simple_replay_pool import SimpleReplayPool, SimpleReplayTrajPool
 
 from mopo.models.constructor import construct_model, format_samples_for_training
 from mopo.models.fake_env import FakeEnv
@@ -135,6 +135,7 @@ class MOPO(RLAlgorithm):
                                 penalty_learned_var=penalty_learned_var)
 
         self._rollout_schedule = [20, 100, rollout_length, rollout_length]
+        self.fix_rollout_length = rollout_length
         self._max_model_t = max_model_t
 
         self._model_retain_epochs = model_retain_epochs
@@ -153,14 +154,23 @@ class MOPO(RLAlgorithm):
         self._evaluation_environment = evaluation_environment
         self.gru_state_dim = network_kwargs['lstm_hidden_unit']
         self.network_kwargs = network_kwargs
-        self.adapt = False
+        self.adapt = True
         self.optim_alpha = False
         # self._policy = policy
 
         # self._Qs = Qs
         # self._Q_targets = tuple(tf.keras.models.clone_model(Q) for Q in Qs)
 
+        observation_shape = self._training_environment.active_observation_shape
+        action_shape = self._training_environment.action_space.shape
         self._pool = pool
+        if self.adapt:
+            self._env_pool = SimpleReplayTrajPool(
+                training_environment.observation_space, training_environment.action_space, self.fix_rollout_length, 2e5
+            )
+        else:
+            self._env_pool = self._pool
+
         self._plotter = plotter
         self._tf_summaries = tf_summaries
 
@@ -182,8 +192,6 @@ class MOPO(RLAlgorithm):
         self._reparameterize = reparameterize
         self._store_extra_policy_info = store_extra_policy_info
 
-        observation_shape = self._training_environment.active_observation_shape
-        action_shape = self._training_environment.action_space.shape
 
         assert len(observation_shape) == 1, observation_shape
         self._observation_shape = observation_shape
@@ -196,7 +204,9 @@ class MOPO(RLAlgorithm):
         self._pool_load_path = pool_load_path
         self._pool_load_max_size = pool_load_max_size
 
-        loader.restore_pool(self._pool, self._pool_load_path, self._pool_load_max_size, save_path=self._log_dir)
+        loader.restore_pool(self._pool, self._pool_load_path, self._pool_load_max_size, save_path=self._log_dir, adapt=False, maxlen=self.fix_rollout_length)
+        loader.restore_pool(self._env_pool, self._pool_load_path, self._pool_load_max_size, save_path=self._log_dir, adapt=self.adapt, maxlen=self.fix_rollout_length)
+
         self._init_pool_size = self._pool.size
         print('[ MOPO ] Starting with pool size: {}'.format(self._init_pool_size))
         ####
@@ -645,13 +655,14 @@ class MOPO(RLAlgorithm):
                                                                 deterministic=self._deterministic,
                                                                 mask_hidden=self.mask_hidden)
                     model_metrics.update(model_rollout_metrics)
-                    
+                    print('[ DEBUG ] after update of model metrics')
                     gt.stamp('epoch_rollout_model')
                     self._training_progress.resume()
-
+                    print('[ DEBUG ] after resume')
+                print('[ DEBUG ]: judge ready to train... {}'.format(self.ready_to_train))
                 ## train actor and critic
                 if self.ready_to_train:
-                    # print('[ DEBUG ]: ready to train at timestep: {}'.format(timestep))
+                    print('[ DEBUG ]: ready to train at timestep: {}'.format(timestep))
                     training_logs = self._do_training_repeats(timestep=timestep)
                 gt.stamp('train')
 
@@ -785,14 +796,21 @@ class MOPO(RLAlgorithm):
             print('[ MOPO ] Initializing new model pool with size {:.2e}'.format(
                 new_pool_size
             ))
-            self._model_pool = SimpleReplayPool(obs_space, act_space, new_pool_size)
+            if self.adapt:
+                self._model_pool = SimpleReplayTrajPool(obs_space, act_space, self.fix_rollout_length, new_pool_size)
+            else:
+                self._model_pool = SimpleReplayPool(obs_space, act_space, new_pool_size)
         
         elif self._model_pool._max_size != new_pool_size:
             print('[ MOPO ] Updating model pool | {:.2e} --> {:.2e}'.format(
                 self._model_pool._max_size, new_pool_size
             ))
             samples = self._model_pool.return_all_samples()
-            new_pool = SimpleReplayPool(obs_space, act_space, new_pool_size)
+            # new_pool = SimpleReplayPool(obs_space, act_space, new_pool_size)
+            if self.adapt:
+                new_pool = SimpleReplayTrajPool(obs_space, act_space, self.fix_rollout_length, new_pool_size)
+            else:
+                new_pool = SimpleReplayPool(obs_space, act_space, new_pool_size)
             new_pool.add_samples(samples)
             assert self._model_pool.size == new_pool.size
             self._model_pool = new_pool
@@ -816,6 +834,7 @@ class MOPO(RLAlgorithm):
         steps_added = []
         hidden = self.make_init_hidden(obs.shape[0])
         current_nonterm = np.ones((len(obs)), dtype=bool)
+        sample_list = []
         for i in range(self._rollout_length):
             # print('[ DEBUG ] obs shape: {}'.format(obs.shape))
             lst_action = hidden[1]
@@ -839,18 +858,25 @@ class MOPO(RLAlgorithm):
             nonterm_mask = ~term.squeeze(-1)
             assert current_nonterm.shape == nonterm_mask.shape
             current_nonterm = current_nonterm & nonterm_mask
-            print('size of last action: ', lst_action.shape, obs.shape, lst_action.squeeze(1).shape)
+            # print('size of last action: ', lst_action.shape, obs.shape, lst_action.squeeze(1).shape)
             samples = {'observations': obs, 'actions': act, 'next_observations': next_obs,
                        'rewards': rew, 'terminals': term,
                        'last_actions': lst_action.squeeze(1), 'valid': current_nonterm.reshape(-1, 1)}
+            if not self.adapt:
+                self._model_pool.add_samples(samples)
+            else:
+                samples = {k: np.expand_dims(v, 1) for k, v in samples.items()}
+                sample_list.append(samples)
+            # if nonterm_mask.sum() == 0:
+            #     print(
+            #         '[ Model Rollout ] Breaking early: {} | {} / {}'.format(i, nonterm_mask.sum(), nonterm_mask.shape))
+            #     break
+        if self.adapt:
+            samples = {}
+            for k in sample_list[0]:
+                data = np.concatenate([item[k] for item in sample_list], axis=1)
+                samples[k] = data
             self._model_pool.add_samples(samples)
-            if nonterm_mask.sum() == 0:
-                print(
-                    '[ Model Rollout ] Breaking early: {} | {} / {}'.format(i, nonterm_mask.sum(), nonterm_mask.shape))
-                break
-
-            # obs = next_obs[nonterm_mask]
-            # hidden = mask_hidden(hidden, nonterm_mask)
         mean_rollout_length = sum(steps_added) / rollout_batch_size
         rollout_stats = {'mean_rollout_length': mean_rollout_length}
         print('[ Model Rollout ] Added: {:.1e} | Model pool: {:.1e} (max {:.1e}) | Length: {} | Train rep: {}'.format(
@@ -880,7 +906,8 @@ class MOPO(RLAlgorithm):
         if trained_enough: return
         log_buffer = []
         logs = {}
-        # print('[ DEBUG ]: {}'.format(self._training_batch()))
+        print('[ DEBUG ]: repeat training {} times'.format(self._n_train_repeat))
+        print('[ DEBUG ]: ' + '-' * 30)
         for i in range(self._n_train_repeat):
             logs = self._do_training(
                 iteration=timestep,
@@ -888,10 +915,12 @@ class MOPO(RLAlgorithm):
             log_buffer.append(logs)
         logs_buffer = {k: np.mean([item[k] for item in log_buffer]) for k in logs}
 
+
         self._num_train_steps += self._n_train_repeat
         self._train_steps_this_epoch += self._n_train_repeat
         return logs_buffer
 
+    # HERE is the most important to revise for RNN
     def _training_batch(self, batch_size=None):
         batch_size = batch_size or self.sampler._batch_size
         env_batch_size = int(batch_size*self._real_ratio)
@@ -900,7 +929,9 @@ class MOPO(RLAlgorithm):
         # TODO: how to set model pool.
 
         ## can sample from the env pool even if env_batch_size == 0
-        env_batch = self._pool.random_batch(env_batch_size)
+
+        # TODO (luofm): sample trajectories (k-branch mode)
+        env_batch = self._env_pool.random_batch(env_batch_size)
 
         if model_batch_size > 0:
             model_batch = self._model_pool.random_batch(model_batch_size)
@@ -934,6 +965,7 @@ class MOPO(RLAlgorithm):
         feed_dict = self._get_feed_dict(iteration, batch)
 
         res = self._session.run(self._training_ops, feed_dict)
+        print('[ DEBUG ]: ' + '-' * 30)
         if iteration % self._target_update_interval == 0:
             # Run target ops here.
             self._update_target()
@@ -950,14 +982,21 @@ class MOPO(RLAlgorithm):
         """Construct TensorFlow feed_dict from sample batch."""
         state_dim = len(batch['observations'].shape)
         resize = lambda x: x[None] if state_dim == 2 else x
+        # print('[ DEBUG ]: len shape: ', np.shape(np.sum(batch['valid'], axis=1).squeeze()), np.sum(batch['valid'], axis=1).squeeze())
+        # TODO: need to set the
         feed_dict = {
             self._observations_ph: resize(batch['observations']),
             self._actions_ph: resize(batch['actions']),
             self._next_observations_ph: resize(batch['next_observations']),
             self._rewards_ph: resize(batch['rewards']),
             self._terminals_ph: resize(batch['terminals']),
-            self._valid_ph: resize(batch['valid'])
+            self._valid_ph: resize(batch['valid']),
+            self.seq_len: np.sum(batch['valid'], axis=1).squeeze(),
+            self._prev_state_p_ph: self.make_init_hidden(batch['observations'].shape[0])[0],
+            self._prev_state_v_ph: self.make_init_hidden(batch['observations'].shape[0])[0]
         }
+        for k, v in feed_dict.items():
+            print("{}: {}".format(k, v.shape))
 
         if self._store_extra_policy_info:
             feed_dict[self._log_pis_ph] = resize(batch['log_pis'])

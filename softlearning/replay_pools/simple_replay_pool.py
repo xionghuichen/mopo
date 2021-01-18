@@ -112,3 +112,102 @@ class SimpleReplayPool(FlexibleReplayPool):
 
     def terminate_episode(self):
         pass
+
+    def random_indices(self, batch_size):
+        if self._size == 0: return np.arange(0, 0)
+        return np.random.randint(0, self._size, batch_size)
+
+    def random_batch(self, batch_size, field_name_filter=None, **kwargs):
+        random_indices = self.random_indices(batch_size)
+        return self.batch_by_indices(
+            random_indices, field_name_filter=field_name_filter, **kwargs)
+
+
+class SimpleReplayTrajPool(FlexibleReplayPool):
+    def __init__(self, observation_space, action_space, max_traj_len, *args, **kwargs):
+        self._observation_space = observation_space
+        self._action_space = action_space
+        self.max_traj_len = max_traj_len
+
+        active_size = sum(
+            np.prod(observation_space.spaces[key].shape)
+            for key in list(observation_space.spaces.keys()))
+
+        active_observation_shape = (active_size, )
+
+        fields = {
+            'actions': {
+                'shape': (self.max_traj_len, *self._action_space.shape),
+                'dtype': 'float32'
+            },
+            'last_actions': {
+                'shape': (self.max_traj_len, *self._action_space.shape),
+                'dtype': 'float32'
+            },
+            'rewards': {
+                'shape': (self.max_traj_len, *(1, )),
+                'dtype': 'float32'
+            },
+            # self.terminals[i] = a terminal was received at time i
+            'terminals': {
+                'shape': (self.max_traj_len, *(1, )),
+                'dtype': 'bool'
+            },
+            'valid': {
+                'shape': (self.max_traj_len, *(1, )),
+                'dtype': 'float32'
+            },
+            'observations': {
+                'shape': (self.max_traj_len, *active_observation_shape),
+                'dtype': 'float32'
+            },
+            'next_observations': {
+                'shape': (self.max_traj_len, *active_observation_shape),
+                'dtype': 'float32'
+            },
+        }
+
+        super(SimpleReplayTrajPool, self).__init__(
+            *args, fields_attrs=fields, **kwargs)
+
+    def add_samples(self, samples):
+        if not isinstance(self._observation_space, Dict):
+            return super(SimpleReplayTrajPool, self).add_samples(samples)
+
+        dict_observations = defaultdict(list)
+        return super(SimpleReplayTrajPool, self).add_samples(samples)
+
+    def batch_by_indices(self,
+                         indices,
+                         field_name_filter=None,
+                         observation_keys=None):
+        if not isinstance(self._observation_space, Dict):
+            return super(SimpleReplayTrajPool, self).batch_by_indices(
+                indices, field_name_filter=field_name_filter)
+
+        batch = {
+            field_name: self.fields[field_name][indices]
+            for field_name in self.field_names
+        }
+
+        if field_name_filter is not None:
+            filtered_fields = self.filter_fields(
+                batch.keys(), field_name_filter)
+            batch = {
+                field_name: batch[field_name]
+                for field_name in filtered_fields
+            }
+
+        return batch
+
+    def terminate_episode(self):
+        pass
+
+    def random_indices(self, batch_size):
+        if self._size == 0: return np.arange(0, 0)
+        return np.random.randint(0, self._size, batch_size)
+
+    def random_batch(self, batch_size, field_name_filter=None, **kwargs):
+        random_indices = self.random_indices(batch_size)
+        return self.batch_by_indices(
+            random_indices, field_name_filter=field_name_filter, **kwargs)

@@ -23,7 +23,7 @@ def get_replay_pool_from_variant(variant, env, *args, **kwargs):
     replay_pool_params["kwargs"]["max_size"] = replay_pool_params["kwargs"]["max_size"](variant)
     replay_pool_type = replay_pool_params['type']
     replay_pool_kwargs = deepcopy(replay_pool_params['kwargs'])
-
+    print('[ DEBUG ]: replay pool config: ', replay_pool_kwargs)
     replay_pool = POOL_CLASSES[replay_pool_type](
         *args,
         observation_space=env.observation_space,
