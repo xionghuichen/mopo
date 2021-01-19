@@ -863,7 +863,6 @@ class MOPO(RLAlgorithm):
             steps_added.append(len(obs))
             nonterm_mask = ~term.squeeze(-1)
             assert current_nonterm.shape == nonterm_mask.shape
-            current_nonterm = current_nonterm & nonterm_mask
             # print('size of last action: ', lst_action.shape, obs.shape, lst_action.squeeze(1).shape)
             samples = {'observations': obs, 'actions': act, 'next_observations': next_obs,
                        'rewards': rew, 'terminals': term,
@@ -873,6 +872,7 @@ class MOPO(RLAlgorithm):
             else:
                 samples = {k: np.expand_dims(v, 1) for k, v in samples.items()}
                 sample_list.append(samples)
+            current_nonterm = current_nonterm & nonterm_mask
             # if nonterm_mask.sum() == 0:
             #     print(
             #         '[ Model Rollout ] Breaking early: {} | {} / {}'.format(i, nonterm_mask.sum(), nonterm_mask.shape))
