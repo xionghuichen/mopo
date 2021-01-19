@@ -38,8 +38,8 @@ class MOPO(RLAlgorithm):
 
     References
     ----------
-        Tianhe Yu, Garrett Thomas, Lantao Yu, Stefano Ermon, James Zou, Sergey Levine, Chelsea Finn, Tengyu Ma. 
-        MOPO: Model-based Offline Policy Optimization. 
+        Tianhe Yu, Garrett Thomas, Lantao Yu, Stefano Ermon, James Zou, Sergey Levine, Chelsea Finn, Tengyu Ma.
+        MOPO: Model-based Offline Policy Optimization.
         arXiv preprint arXiv:2005.13239. 2020.
     """
 
@@ -372,8 +372,8 @@ class MOPO(RLAlgorithm):
                 # cells_policy = tf.nn.rnn_cell.MultiRNNCell(cells=cells_policy,
                 #                                                 state_is_tuple=False)
                 lstm_input = state_acs
-                cells_policy = tf.nn.rnn_cell.GRUCell(num_units=self.network_kwargs["lstm_hidden_unit"])
-                value_out, next_value_hidden_out = tf.nn.dynamic_rnn(cells_policy, lstm_input,
+                cells_value = tf.nn.rnn_cell.GRUCell(num_units=self.network_kwargs["lstm_hidden_unit"])
+                value_out, next_value_hidden_out = tf.nn.dynamic_rnn(cells_value, lstm_input,
                                                                      initial_state=pre_state_v,
                                                                      dtype=tf.float32, sequence_length=seq_len)
                 value_out = mlp(value_out, hidden_sizes=[self.network_kwargs['embedding_size']],
@@ -590,7 +590,7 @@ class MOPO(RLAlgorithm):
         return res
 
     def _train(self):
-        
+
         """Return a generator that performs RL training.
 
         Args:
@@ -633,7 +633,7 @@ class MOPO(RLAlgorithm):
         model_metrics.update(model_train_metrics)
         self._log_model()
         gt.stamp('epoch_train_model')
-        #### 
+        ####
         tester.time_step_holder.set_time(0)
         for self._epoch in gt.timed_for(range(self._epoch, self._n_epochs)):
 
@@ -806,7 +806,7 @@ class MOPO(RLAlgorithm):
                 self._model_pool = SimpleReplayTrajPool(obs_space, act_space, self.fix_rollout_length, new_pool_size)
             else:
                 self._model_pool = SimpleReplayPool(obs_space, act_space, new_pool_size)
-        
+
         elif self._model_pool._max_size != new_pool_size:
             print('[ MOPO ] Updating model pool | {:.2e} --> {:.2e}'.format(
                 self._model_pool._max_size, new_pool_size
