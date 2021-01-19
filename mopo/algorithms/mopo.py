@@ -484,10 +484,10 @@ class MOPO(RLAlgorithm):
         print('q1_pi: {}, q2_pi: {}, policy_state2: {}, policy_state1: {}, '
               'tmux a: {}, q_targ: {}, mu: {}, reward: {}, '
               'terminal: {}, target_q: {}, next_value: {}, '
-              'q1: {}, logp_pi: {}, min_q_pi: {}, q1_loss: {}'.format(q1_pi, q2_pi, policy_state1, policy_state2, pi_next,
+              'q1: {}, logp_pi: {}, min_q_pi: {}, q1_loss: {}, next_hidden_out: {}'.format(q1_pi, q2_pi, policy_state1, policy_state2, pi_next,
                                                          q1_targ, self.mu, self._rewards_ph[..., 0],
                                                          self._terminals_ph[..., 0],
-                                                         q_target, next_value, q1, logp_pi, min_q_pi, q1_loss))
+                                                         q_target, next_value, q1, logp_pi, min_q_pi, q1_loss, self.next_policy_hidden_out))
         print('[ DEBUG ]: Q lr is {}'.format(self._Q_lr))
 
 
@@ -503,26 +503,27 @@ class MOPO(RLAlgorithm):
 
         _, pi_global_norm = tf.clip_by_global_norm(pgrads, 2000)
 
-        with tf.control_dependencies([train_pi_op]):
-            value_params1 = get_vars('main/q1')
-            value_params2 = get_vars('main/q2')
-            if self.adapt:
-                value_params1 += get_vars("lstm_net_v")
-                value_params2 += get_vars("lstm_net_v")
+        # TODO (luofm): figure out why ``core dumped'' after add the following line
+        # with tf.control_dependencies([train_pi_op]):
+        value_params1 = get_vars('main/q1')
+        value_params2 = get_vars('main/q2')
+        if self.adapt:
+            value_params1 += get_vars("lstm_net_v")
+            value_params2 += get_vars("lstm_net_v")
 
-            grads, variables = zip(*value_optimizer1.compute_gradients(self.Q_loss, var_list=value_params1))
-            _, q_global_norm = tf.clip_by_global_norm(grads, 2000)
-            train_value_op1 = value_optimizer1.minimize(q1_loss, var_list=value_params1)
-            train_value_op2 = value_optimizer2.minimize(q2_loss, var_list=value_params2)
-            with tf.control_dependencies([train_value_op1, train_value_op2]):
-                if isinstance(self._target_entropy, Number):
-                    alpha_loss = -tf.reduce_sum((
-                        log_alpha * tf.stop_gradient(logp_pi + self._target_entropy)) * self._valid_ph[:, :, 0]) / valid_num
-                    self._alpha_optimizer = tf.train.AdamOptimizer(self._policy_lr, name='alpha_optimizer')
-                    self._alpha_train_op = self._alpha_optimizer.minimize(
-                        loss=alpha_loss, var_list=[log_alpha])
-                else:
-                    self._alpha_train_op = tf.no_op()
+        grads, variables = zip(*value_optimizer1.compute_gradients(q1_loss, var_list=value_params1))
+        _, q_global_norm = tf.clip_by_global_norm(grads, 2000)
+        train_value_op1 = value_optimizer1.minimize(q1_loss, var_list=value_params1)
+        train_value_op2 = value_optimizer2.minimize(q2_loss, var_list=value_params2)
+        # with tf.control_dependencies([train_value_op1, train_value_op2]):
+        if isinstance(self._target_entropy, Number):
+            alpha_loss = -tf.reduce_sum((
+                log_alpha * tf.stop_gradient(logp_pi + self._target_entropy)) * self._valid_ph[:, :, 0]) / valid_num
+            self._alpha_optimizer = tf.train.AdamOptimizer(self._policy_lr, name='alpha_optimizer')
+            self._alpha_train_op = self._alpha_optimizer.minimize(
+                loss=alpha_loss, var_list=[log_alpha])
+        else:
+            self._alpha_train_op = tf.no_op()
 
 
         self.target_update = tf.group([tf.assign(v_targ, (1 - self._tau) * v_targ + self._tau * v_main)
@@ -532,9 +533,10 @@ class MOPO(RLAlgorithm):
                                      for v_main, v_targ in zip(get_vars('main'), get_vars('target'))])
 
         # construct opt
-        self._training_ops = [tf.group((train_value_op2, train_value_op1, train_pi_op, self._alpha_train_op)),
+        self._training_ops = [
+            tf.group((train_value_op2, train_value_op1, train_pi_op, self._alpha_train_op)),
                               { "sac_pi/pi_global_norm": pi_global_norm,
-                                "sac_Q/q_global_norm": q_global_norm,
+                                # "sac_Q/q_global_norm": q_global_norm,
                                 "Q/q1_loss": q1_loss,
                                 "sac_Q/q2_loss": q2_loss,
                                 "sac_Q/q1": q1,
@@ -543,7 +545,11 @@ class MOPO(RLAlgorithm):
                                 "sac_pi/pi_entropy": pi_entropy,
                                 "sac_pi/logp_pi": logp_pi,
                                 "sac_pi/std": logp_pi,
-                                "sac_pi/valid_num": valid_num}]
+                                "sac_pi/valid_num": valid_num,
+                                "sac_pi/policy_loss": policy_loss,
+                                "sac_pi/alpha_loss": alpha_loss
+                              }]
+        # self._training_ops = [q1_loss, q2_loss, policy_loss, alpha_loss] #, logp_pi]
 
         self._session.run(tf.global_variables_initializer())
         self._session.run(self.target_init)
@@ -655,14 +661,14 @@ class MOPO(RLAlgorithm):
                                                                 deterministic=self._deterministic,
                                                                 mask_hidden=self.mask_hidden)
                     model_metrics.update(model_rollout_metrics)
-                    print('[ DEBUG ] after update of model metrics')
+                    # print('[ DEBUG ] after update of model metrics')
                     gt.stamp('epoch_rollout_model')
                     self._training_progress.resume()
-                    print('[ DEBUG ] after resume')
-                print('[ DEBUG ]: judge ready to train... {}'.format(self.ready_to_train))
+                    # print('[ DEBUG ] after resume')
+                # print('[ DEBUG ]: judge ready to train... {}'.format(self.ready_to_train))
                 ## train actor and critic
                 if self.ready_to_train:
-                    print('[ DEBUG ]: ready to train at timestep: {}'.format(timestep))
+                    # print('[ DEBUG ]: ready to train at timestep: {}'.format(timestep))
                     training_logs = self._do_training_repeats(timestep=timestep)
                 gt.stamp('train')
 
@@ -906,8 +912,8 @@ class MOPO(RLAlgorithm):
         if trained_enough: return
         log_buffer = []
         logs = {}
-        print('[ DEBUG ]: repeat training {} times'.format(self._n_train_repeat))
-        print('[ DEBUG ]: ' + '-' * 30)
+        # print('[ DEBUG ]: repeat training {} times'.format(self._n_train_repeat))
+        # print('[ DEBUG ]: ' + '-' * 30)
         for i in range(self._n_train_repeat):
             logs = self._do_training(
                 iteration=timestep,
@@ -965,7 +971,7 @@ class MOPO(RLAlgorithm):
         feed_dict = self._get_feed_dict(iteration, batch)
 
         res = self._session.run(self._training_ops, feed_dict)
-        print('[ DEBUG ]: ' + '-' * 30)
+        # print('[ DEBUG ]: ' + '-' * 30)
         if iteration % self._target_update_interval == 0:
             # Run target ops here.
             self._update_target()
@@ -993,10 +999,11 @@ class MOPO(RLAlgorithm):
             self._valid_ph: resize(batch['valid']),
             self.seq_len: np.sum(batch['valid'], axis=1).squeeze(),
             self._prev_state_p_ph: self.make_init_hidden(batch['observations'].shape[0])[0],
-            self._prev_state_v_ph: self.make_init_hidden(batch['observations'].shape[0])[0]
+            self._prev_state_v_ph: self.make_init_hidden(batch['observations'].shape[0])[0],
+            self._last_actions_ph: resize(batch['last_actions'])
         }
-        for k, v in feed_dict.items():
-            print("{}: {}".format(k, v.shape))
+        # for k, v in feed_dict.items():
+        #     print("{}: {}".format(k, v.shape))
 
         if self._store_extra_policy_info:
             feed_dict[self._log_pis_ph] = resize(batch['log_pis'])
