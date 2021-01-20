@@ -20,6 +20,8 @@ def get_variant_spec(command_line_args):
     variant_spec = get_variant_spec(command_line_args, params)
     variant_spec["info"] = command_line_args.info
     variant_spec['model_suffix'] = command_line_args.model_suffix
+    variant_spec['use_adapt'] = command_line_args.use_adapt
+
     return variant_spec
 
 

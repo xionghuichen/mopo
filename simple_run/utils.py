@@ -240,7 +240,7 @@ def get_parser(allow_policy_list=False):
 
     parser.add_argument(
         '--model_suffix', type=str, default='0')
-
+    parser.add_argument('--use_adapt', action='store_true')
     parser.add_argument(
         '--checkpoint-replay-pool',
         type=lambda x: bool(strtobool(x)),

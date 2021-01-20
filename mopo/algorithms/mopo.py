@@ -154,7 +154,7 @@ class MOPO(RLAlgorithm):
         self._evaluation_environment = evaluation_environment
         self.gru_state_dim = network_kwargs['lstm_hidden_unit']
         self.network_kwargs = network_kwargs
-        self.adapt = True
+        self.adapt = adapt
         self.optim_alpha = False
         # self._policy = policy
 
