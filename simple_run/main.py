@@ -19,6 +19,7 @@ def get_variant_spec(command_line_args):
     # pdb.set_trace()
     variant_spec = get_variant_spec(command_line_args, params)
     variant_spec["info"] = command_line_args.info
+    variant_spec['model_suffix'] = command_line_args.model_suffix
     return variant_spec
 
 
@@ -143,6 +144,7 @@ def get_package_path():
     return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # python simple_run/main.py --config examples.config.d4rl.halfcheetah_random
+# python simple_run/main.py --config examples.config.d4rl.halfcheetah_mixed --model_suffix 20
 def main():
     import sys
     example_args = get_parser().parse_args(sys.argv[1:])
@@ -208,6 +210,8 @@ def main():
     domain = environment_params['training']['domain']
     static_fns = mopo.static[domain.lower()]
     ####
+    if not variant['model_suffix'] == '0':
+        variant['algorithm_params']['kwargs']['num_networks'] = int(variant['model_suffix'])
     print("[ DEBUG ] KWARGS: {}".format(variant['algorithm_params']['kwargs']))
 
     algorithm = get_algorithm_from_variant(

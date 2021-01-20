@@ -46,7 +46,7 @@ def get_algorithm_from_variant(variant,  *args, **kwargs):
     exp_name = exp_name.replace('_', '-')
     if algorithm_kwargs['separate_mean_var']:
         exp_name += '_smv'
-    algorithm_kwargs["model_name"] = exp_name + '_1_0'
+    algorithm_kwargs["model_name"] = exp_name + '_1_{}'.format(variant['model_suffix'])
     kwargs = {**kwargs, **algorithm_kwargs.toDict()}
     print("[ DEBUG ]: kwargs to net is {}".format(kwargs))
     algorithm = ALGORITHM_CLASSES[algorithm_type](variant, *args, **kwargs)

@@ -39,10 +39,11 @@ def main(args):
     train_inputs, train_outputs = format_samples_for_training(dataset)
     model.train(train_inputs, train_outputs,
                 batch_size=args.batch_size, holdout_ratio=args.holdout_ratio, max_epochs=args.max_epochs, max_t=args.max_t)
-    model.save(args.model_dir, 0)
+    model.save(args.model_dir, args.num_networks)
 
 # python mopo/scripts/train_model_offline.py --num-networks 7 --separate-mean-var --env halfcheetah --quality medium-expert
 # python mopo/scripts/train_model_offline.py --num-networks 7 --env halfcheetah --quality medium-expert
+# python mopo/scripts/train_model_offline.py --num-networks 50 --env halfcheetah --quality medium-replay --separate-mean-var
 
 if __name__ == '__main__':
     from argparse import ArgumentParser
@@ -52,6 +53,7 @@ if __name__ == '__main__':
     parser.add_argument('--env', default="halfcheetah")
     parser.add_argument('--quality', default="medium-replay")
     parser.add_argument('--info', default="")
+
     parser.add_argument('--seed', default=1, type=int)
     parser.add_argument('--model-type', default='mlp')
     parser.add_argument('--separate-mean-var', action='store_true')
