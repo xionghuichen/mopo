@@ -164,6 +164,8 @@ class MOPO(RLAlgorithm):
         observation_shape = self._training_environment.active_observation_shape
         action_shape = self._training_environment.action_space.shape
         self._pool = pool
+        print('[ DEBUG ] pool.size=', pool.size)
+
         if self.adapt:
             self._env_pool = SimpleReplayTrajPool(
                 training_environment.observation_space, training_environment.action_space, self.fix_rollout_length, 2e5
@@ -205,8 +207,9 @@ class MOPO(RLAlgorithm):
         self._pool_load_max_size = pool_load_max_size
 
         loader.restore_pool(self._pool, self._pool_load_path, self._pool_load_max_size, save_path=self._log_dir, adapt=False, maxlen=self.fix_rollout_length)
-        loader.restore_pool(self._env_pool, self._pool_load_path, self._pool_load_max_size, save_path=self._log_dir, adapt=self.adapt, maxlen=self.fix_rollout_length)
-
+        if self.adapt:
+            loader.restore_pool(self._env_pool, self._pool_load_path, self._pool_load_max_size, save_path=self._log_dir, adapt=self.adapt, maxlen=self.fix_rollout_length)
+        print('[ DEBUG ] pool.size (after restore from pool) =', pool.size)
         self._init_pool_size = self._pool.size
         print('[ MOPO ] Starting with pool size: {}'.format(self._init_pool_size))
         ####
