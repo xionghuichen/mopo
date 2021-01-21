@@ -48,6 +48,7 @@ def get_algorithm_from_variant(variant,  *args, **kwargs):
     if algorithm_kwargs['separate_mean_var']:
         exp_name += '_smv'
     algorithm_kwargs["model_name"] = exp_name + '_1_{}'.format(variant['model_suffix'])
+    algorithm_kwargs["tester"] = kwargs['tester']
     kwargs = {**kwargs, **algorithm_kwargs.toDict()}
     kwargs['adapt'] = adapt
     print("[ DEBUG ]: kwargs to net is {}".format(kwargs))

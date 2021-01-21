@@ -87,6 +87,7 @@ class MOPO(RLAlgorithm):
             model_load_dir=None,
             penalty_coeff=0.,
             penalty_learned_var=False,
+            tester=None,
             **kwargs):
         """
         Args:
@@ -112,6 +113,7 @@ class MOPO(RLAlgorithm):
 
         super(MOPO, self).__init__(**kwargs)
         print("[ DEBUG ]: model name: {}".format(model_name))
+        self.tester = tester
         if '_smv' in model_name:
             self._env_name = model_name[:-8] + '-v0'
         else:
@@ -366,7 +368,7 @@ class MOPO(RLAlgorithm):
                                                                        dtype=tf.float32, sequence_length=seq_len)
                 policy_out = mlp(policy_out, hidden_sizes=[self.network_kwargs['embedding_size']],
                                  activation=tf.tanh, output_activation=tf.tanh)
-                policy_state = tf.concat([policy_out, x_ph], axis=-1)
+                policy_state = tf.concat([policy_out * 0, x_ph], axis=-1)
 
             with tf.variable_scope("lstm_net_v", reuse=tf.AUTO_REUSE):
                 # cells_policy = []
@@ -381,7 +383,7 @@ class MOPO(RLAlgorithm):
                                                                      dtype=tf.float32, sequence_length=seq_len)
                 value_out = mlp(value_out, hidden_sizes=[self.network_kwargs['embedding_size']],
                                  activation=tf.tanh, output_activation=tf.tanh)
-                value_state = tf.concat([value_out, x_ph], axis=-1)
+                value_state = tf.concat([value_out * 0, x_ph], axis=-1)
             return policy_state, value_state, next_policy_hidden_out, next_value_hidden_out, policy_out, value_out
 
         if self.adapt:
@@ -738,7 +740,8 @@ class MOPO(RLAlgorithm):
             if self._eval_render_mode is not None and hasattr(
                     evaluation_environment, 'render_rollouts'):
                 training_environment.render_rollouts(evaluation_paths)
-
+            if self._epoch % 20 == 0:
+                self.tester.sync_log_file()
             ## ensure we did not collect any more data
             assert self._pool.size == self._init_pool_size
             for k, v in diagnostics.items():
@@ -835,8 +838,8 @@ class MOPO(RLAlgorithm):
         return model_metrics
 
     def _rollout_model(self, rollout_batch_size, mask_hidden, **kwargs):
-        print('[ Model Rollout ] Starting | Epoch: {} | Rollout length: {} | Batch size: {} | Type: {}'.format(
-            self._epoch, self._rollout_length, rollout_batch_size, self._model_type
+        print('[ Model Rollout ] Starting | Epoch: {} | Rollout length: {} | Batch size: {} | Type: {} | Adapt: {}'.format(
+            self._epoch, self._rollout_length, rollout_batch_size, self._model_type, self.adapt
         ))
         batch = self.sampler.random_batch(rollout_batch_size)
         obs = batch['observations']

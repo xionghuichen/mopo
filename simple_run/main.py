@@ -225,7 +225,7 @@ def main():
         Qs=Qs,
         pool=replay_pool,
         static_fns=static_fns,
-        sampler=sampler, session=session)
+        sampler=sampler, session=session, tester=tester)
     print('[ DEBUG ] finish construct model, start training')
     # train
     list(algorithm.train())
