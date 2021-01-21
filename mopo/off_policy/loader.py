@@ -49,7 +49,7 @@ def restore_pool_d4rl(replay_pool, name, adapt=False, maxlen=5):
         data_adapt = {k: [] for k in data}
         it_traj = {k: [] for k in data}
         current_len = 0
-        for start_ind in range(5):
+        for start_ind in range(maxlen):
             traj_start_ind = 0
             for i in range(data['observations'].shape[0]):
                 if i - traj_start_ind < start_ind:
