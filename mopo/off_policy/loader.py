@@ -49,22 +49,27 @@ def restore_pool_d4rl(replay_pool, name, adapt=False, maxlen=5):
         data_adapt = {k: [] for k in data}
         it_traj = {k: [] for k in data}
         current_len = 0
-        for i in range(data['observations'].shape[0]):
-            for k in data:
-                it_traj[k].append(data[k][i])
-            current_len += 1
-            if data['end_step'][i]:
-                for j in range(maxlen - current_len):
-                    for k in data:
-                        it_traj[k].append(np.zeros_like(data[k][i]))
-                    current_len += 1
-            if current_len >= maxlen:
-                for k in data_adapt:
-                    data_adapt[k].append(np.expand_dims(np.vstack(it_traj[k]), 0))
-                it_traj = {k: [] for k in data}
-                current_len = 0
+        for start_ind in range(5):
+            traj_start_ind = 0
+            for i in range(data['observations'].shape[0]):
+                if i - traj_start_ind < start_ind:
+                    continue
+                for k in data:
+                    it_traj[k].append(data[k][i])
+                current_len += 1
+                if data['end_step'][i]:
+                    traj_start_ind = i + 1
+                    for j in range(maxlen - current_len):
+                        for k in data:
+                            it_traj[k].append(np.zeros_like(data[k][i]))
+                        current_len += 1
+                if current_len >= maxlen:
+                    for k in data_adapt:
+                        data_adapt[k].append(np.expand_dims(np.vstack(it_traj[k]), 0))
+                    it_traj = {k: [] for k in data}
+                    current_len = 0
         data_adapt = {k: np.vstack(v) for k, v in data_adapt.items()}
-        data_adapt['last_actions'][:, 0 ] = 0
+        data_adapt['last_actions'][:, 0] = 0
         for k, v in data_adapt.items():
             print('[ DEBUG ] key of env data: {}: value is {}'.format(k, v.shape))
         # print('[ DEBUG ] ----------')

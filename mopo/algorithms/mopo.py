@@ -368,7 +368,7 @@ class MOPO(RLAlgorithm):
                                                                        dtype=tf.float32, sequence_length=seq_len)
                 policy_out = mlp(policy_out, hidden_sizes=[self.network_kwargs['embedding_size']],
                                  activation=tf.tanh, output_activation=tf.tanh)
-                policy_state = tf.concat([policy_out * 0, x_ph], axis=-1)
+                policy_state = tf.concat([x_ph], axis=-1)
 
             with tf.variable_scope("lstm_net_v", reuse=tf.AUTO_REUSE):
                 # cells_policy = []
@@ -383,7 +383,7 @@ class MOPO(RLAlgorithm):
                                                                      dtype=tf.float32, sequence_length=seq_len)
                 value_out = mlp(value_out, hidden_sizes=[self.network_kwargs['embedding_size']],
                                  activation=tf.tanh, output_activation=tf.tanh)
-                value_state = tf.concat([value_out * 0, x_ph], axis=-1)
+                value_state = tf.concat([x_ph], axis=-1)
             return policy_state, value_state, next_policy_hidden_out, next_value_hidden_out, policy_out, value_out
 
         if self.adapt:
