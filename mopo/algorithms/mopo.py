@@ -879,6 +879,7 @@ class MOPO(RLAlgorithm):
                 samples = {k: np.expand_dims(v, 1) for k, v in samples.items()}
                 sample_list.append(samples)
             current_nonterm = current_nonterm & nonterm_mask
+            obs = next_obs
             # if nonterm_mask.sum() == 0:
             #     print(
             #         '[ Model Rollout ] Breaking early: {} | {} / {}'.format(i, nonterm_mask.sum(), nonterm_mask.shape))
@@ -888,6 +889,8 @@ class MOPO(RLAlgorithm):
             for k in sample_list[0]:
                 data = np.concatenate([item[k] for item in sample_list], axis=1)
                 samples[k] = data
+                # print('[ DEBUG ]: shape of data: ', np.shape(data))
+                # print(k, data[0])
             self._model_pool.add_samples(samples)
         mean_rollout_length = sum(steps_added) / rollout_batch_size
         rollout_stats = {'mean_rollout_length': mean_rollout_length}
