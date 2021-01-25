@@ -5,10 +5,10 @@ import gzip
 import pdb
 import numpy as np
 
-def restore_pool(replay_pool, experiment_root, max_size, save_path=None, adapt=False, maxlen=5):
+def restore_pool(replay_pool, experiment_root, max_size, save_path=None, adapt=False, maxlen=5, policy_hook=None):
     print('[ DEBUG ]: start restoring the pool')
     if 'd4rl' in experiment_root:
-        restore_pool_d4rl(replay_pool, experiment_root[5:], adapt, maxlen)
+        restore_pool_d4rl(replay_pool, experiment_root[5:], adapt, maxlen, policy_hook)
     else:
         assert os.path.exists(experiment_root)
         if os.path.isdir(experiment_root):
@@ -20,11 +20,15 @@ def restore_pool(replay_pool, experiment_root, max_size, save_path=None, adapt=F
                 restore_pool_bear(replay_pool, experiment_root)
     print('[ mbpo/off_policy ] Replay pool has size: {}'.format(replay_pool.size))
 
+def allocate_hidden_state(replay_pool_full_traj, get_action, make_hidden):
+    state = replay_pool_full_traj
+    pass
 
-def restore_pool_d4rl(replay_pool, name, adapt=False, maxlen=5):
+def restore_pool_d4rl(replay_pool, name, adapt=False, maxlen=5, policy_hook=None):
     import gym
     import d4rl
     env = gym.make(name)
+    get_hidden = policy_hook if policy_hook else None
     mask_steps = env._max_episode_steps - 1
     data = d4rl.qlearning_dataset(gym.make(name))
     data['rewards'] = np.expand_dims(data['rewards'], axis=1)
@@ -35,6 +39,10 @@ def restore_pool_d4rl(replay_pool, name, adapt=False, maxlen=5):
     data['end_step'] = np.zeros_like(data['terminals'])
     data['valid'] = np.ones_like(data['terminals'])
     print('[ DEBUG ]: key in data: {}'.format(list(data.keys())))
+    max_traj_len = -1
+    last_start = 0
+    traj_num = 1
+    traj_lens = []
     for i in range(data['observations'].shape[0]):
         flag = True
         if i >= 1:
@@ -43,13 +51,47 @@ def restore_pool_d4rl(replay_pool, name, adapt=False, maxlen=5):
             data['last_actions'][i][:] = 0
             data['first_step'][i][:] = 1
             data['end_step'][i-1][:] = 1
+            traj_len = i - last_start
+            max_traj_len = max(max_traj_len, traj_len)
+            last_start = i
+            traj_num += 1
+            traj_lens.append(traj_len)
+    traj_lens.append(data['observations'].shape[0] - last_start)
+
     print("[ DEBUG ]: adapt is ", adapt)
+    if adapt and policy_hook is not None:
+        # making init hidden state
+        # 1, making state and lst action
+        states = np.zeros((traj_num, max_traj_len, data['observations'].shape[-1]))
+        actions = np.zeros((traj_num, max_traj_len, data['actions'].shape[-1]))
+        lst_actions = np.zeros((traj_num, max_traj_len, data['last_actions'].shape[-1]))
+        start_ind = 0
+        for ind, item in enumerate(traj_lens):
+            states[ind, :item] = data['observations'][start_ind:(start_ind+item)]
+            lst_actions[ind, :item] = data['last_actions'][start_ind:(start_ind+item)]
+            actions[ind, :item] = data['actions'][start_ind:(start_ind+item)]
+            start_ind += item
+        print('[ DEBUG ] size of total env states: {}, actions: {}'.format(states.shape, actions.shape))
+        # state, action, last_action, length
+        policy_hidden_out, value_hidden_out = get_hidden(states, actions, lst_actions, np.array(traj_lens))
+        policy_hidden = np.concatenate((np.zeros((len(traj_lens), 1, policy_hidden_out.shape[-1])),
+                                        policy_hidden_out[:, :-1]), axis=-2)
+        value_hidden = np.concatenate((np.zeros((len(traj_lens), 1, value_hidden_out.shape[-1])),
+                                        value_hidden_out[:, :-1]), axis=-2)
+        data['policy_hidden'] = np.zeros((data['last_actions'].shape[0], policy_hidden.shape[-1]))
+        data['value_hidden'] = np.zeros((data['last_actions'].shape[0], value_hidden.shape[-1]))
+        start_ind = 0
+        for ind, item in enumerate(traj_lens):
+            data['policy_hidden'][start_ind:(start_ind + item)] = policy_hidden[ind, :item]
+            data['value_hidden'][start_ind:(start_ind + item)] = value_hidden[ind, :item]
+            start_ind += item
+    print('[ DEBUG ]: inferring hidden state done')
     if adapt:
 
         data_adapt = {k: [] for k in data}
         it_traj = {k: [] for k in data}
         current_len = 0
-        for start_ind in range(maxlen):
+        for start_ind in range(1):
             traj_start_ind = 0
             for i in range(data['observations'].shape[0]):
                 if i - traj_start_ind < start_ind:

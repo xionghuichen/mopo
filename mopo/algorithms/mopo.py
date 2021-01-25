@@ -174,11 +174,12 @@ class MOPO(RLAlgorithm):
 
         if self.adapt:
             self._env_pool = SimpleReplayTrajPool(
-                training_environment.observation_space, training_environment.action_space, self.fix_rollout_length, 2e5
+                training_environment.observation_space, training_environment.action_space, self.fix_rollout_length, self.network_kwargs["lstm_hidden_unit"], 2e5
             )
+
         else:
             self._env_pool = self._pool
-
+        print('[ DEBUG ] max size of the env pool: ', self._env_pool._max_size)
         self._plotter = plotter
         self._tf_summaries = tf_summaries
 
@@ -207,18 +208,31 @@ class MOPO(RLAlgorithm):
         self._action_shape = action_shape
 
         self._build()
-
+        def get_hidden(state, action, last_action, length):
+            return self.get_action_hidden(state, action, last_action, length)
         #### load replay pool data
         self._pool_load_path = pool_load_path
         self._pool_load_max_size = pool_load_max_size
 
-        loader.restore_pool(self._pool, self._pool_load_path, self._pool_load_max_size, save_path=self._log_dir, adapt=False, maxlen=self.fix_rollout_length)
+        loader.restore_pool(self._pool, self._pool_load_path, self._pool_load_max_size, save_path=self._log_dir, adapt=False, maxlen=self.fix_rollout_length, policy_hook=get_hidden if self.adapt else None)
         if self.adapt:
-            loader.restore_pool(self._env_pool, self._pool_load_path, self._pool_load_max_size, save_path=self._log_dir, adapt=self.adapt, maxlen=self.fix_rollout_length)
+            loader.restore_pool(self._env_pool, self._pool_load_path, self._pool_load_max_size, save_path=self._log_dir, adapt=self.adapt, maxlen=self.fix_rollout_length, policy_hook=get_hidden)
+
         print('[ DEBUG ] pool.size (after restore from pool) =', pool.size)
         self._init_pool_size = self._pool.size
         print('[ MOPO ] Starting with pool size: {}'.format(self._init_pool_size))
         ####
+
+    def _reinit_pool(self):
+        def get_hidden(state, action, last_action, length):
+            return self.get_action_hidden(state, action, last_action, length)
+        self._env_pool = SimpleReplayTrajPool(
+            self._training_environment.observation_space, self._training_environment.action_space,
+            self.fix_rollout_length,
+            self.network_kwargs["lstm_hidden_unit"], 2e5
+        )
+        loader.restore_pool(self._env_pool, self._pool_load_path, self._pool_load_max_size, save_path=self._log_dir,
+                            adapt=self.adapt, maxlen=self.fix_rollout_length, policy_hook=get_hidden)
 
     def _build(self):
 
@@ -370,9 +384,9 @@ class MOPO(RLAlgorithm):
                 policy_out, next_policy_hidden_out = tf.nn.dynamic_rnn(cells_policy, lstm_input,
                                                                        initial_state=pre_state_p,
                                                                        dtype=tf.float32, sequence_length=seq_len)
-                policy_out = mlp(policy_out, hidden_sizes=[self.network_kwargs['embedding_size']],
+                policy_out1 = mlp(policy_out, hidden_sizes=[self.network_kwargs['embedding_size']],
                                  activation=tf.tanh, output_activation=tf.tanh)
-                policy_state = tf.concat([policy_out, x_ph], axis=-1)
+                policy_state = tf.concat([policy_out1, x_ph], axis=-1)
 
             with tf.variable_scope("lstm_net_v", reuse=tf.AUTO_REUSE):
                 # cells_policy = []
@@ -385,9 +399,9 @@ class MOPO(RLAlgorithm):
                 value_out, next_value_hidden_out = tf.nn.dynamic_rnn(cells_value, lstm_input,
                                                                      initial_state=pre_state_v,
                                                                      dtype=tf.float32, sequence_length=seq_len)
-                value_out = mlp(value_out, hidden_sizes=[self.network_kwargs['embedding_size']],
+                value_out1 = mlp(value_out, hidden_sizes=[self.network_kwargs['embedding_size']],
                                  activation=tf.tanh, output_activation=tf.tanh)
-                value_state = tf.concat([value_out, x_ph], axis=-1)
+                value_state = tf.concat([value_out1, x_ph], axis=-1)
             return policy_state, value_state, next_policy_hidden_out, next_value_hidden_out, policy_out, value_out
 
         if self.adapt:
@@ -395,7 +409,9 @@ class MOPO(RLAlgorithm):
             # input_lst_a = tf.concat((self._last_actions_ph, self._actions_ph[:, -1:, :]), axis=1)
             policy_state, value_state, self.next_policy_hidden_out, self.next_value_hidden_out, policy_out, value_out = lstm_emb(
                 self._observations_ph, self._last_actions_ph, self._prev_state_p_ph, self._prev_state_v_ph)
-            policy_state_next, value_state_next, _, _, policy_out, value_out = lstm_emb(
+            self.rnn_policy_out = policy_out
+            self.rnn_value_out = value_out
+            policy_state_next, value_state_next, _, _, _, _ = lstm_emb(
                 self._next_observations_ph[:, -1:], self._actions_ph[:, -1:], self.next_policy_hidden_out,
                 self.next_value_hidden_out, tf.ones_like(self.seq_len))
             policy_state1, value_state1 = policy_state, value_state
@@ -563,17 +579,33 @@ class MOPO(RLAlgorithm):
         self._session.run(tf.global_variables_initializer())
         self._session.run(self.target_init)
 
-    def get_action_meta(self, state, hidden, deterministic=False):
+
+    def get_action_hidden(self, state, action, last_action, length):
+        hidden = self.make_init_hidden(state.shape[0])[0]
+        with self._session.as_default():
+            feed_dict = {
+                self._observations_ph: state,
+                self._prev_state_p_ph: hidden,
+                self._prev_state_v_ph: hidden,
+                self._last_actions_ph: last_action,
+                self.seq_len: length,
+                self._actions_ph: action,
+            }
+            hidden_policy, hidden_value = self._session.run([self.rnn_policy_out, self.rnn_value_out], feed_dict=feed_dict)
+        return hidden_policy, hidden_value
+
+    def get_action_meta(self, state, hidden, deterministic=False, lens=None):
         assert isinstance(hidden, tuple), 'hidden: (hidden state of policy, lst_action)'
         with self._session.as_default():
             state_dim = len(np.shape(state))
             if state_dim == 2:
                 state = np.expand_dims(state, 1)
+            lens = lens or [1] * state.shape[0]
             feed_dict = {
                 self._observations_ph: state,
                 self._prev_state_p_ph: hidden[0],
                 self._last_actions_ph: hidden[1],
-                self.seq_len:[1] * state.shape[0]
+                self.seq_len:lens
 
             }
             mu, pi, next_hidden = self._session.run([self.mu, self.pi, self.next_policy_hidden_out], feed_dict=feed_dict)
@@ -751,6 +783,8 @@ class MOPO(RLAlgorithm):
             for k, v in diagnostics.items():
                 # print('[ DEBUG ] epoch: {} diagnostics k: {}, v: {}'.format(self._epoch, k, v))
                 self._writer.add_scalar(k, v, self._epoch)
+            if epoch % 4 == 0:
+                self._reinit_pool()
             yield diagnostics
 
         self.sampler.terminate()
@@ -758,7 +792,6 @@ class MOPO(RLAlgorithm):
         self._training_after_hook()
 
         self._training_progress.close()
-
         yield {'done': True, **diagnostics}
 
     def train(self, *args, **kwargs):
@@ -813,7 +846,7 @@ class MOPO(RLAlgorithm):
                 new_pool_size
             ))
             if self.adapt:
-                self._model_pool = SimpleReplayTrajPool(obs_space, act_space, self.fix_rollout_length, new_pool_size)
+                self._model_pool = SimpleReplayTrajPool(obs_space, act_space, self.fix_rollout_length, self.network_kwargs["lstm_hidden_unit"], new_pool_size)
             else:
                 self._model_pool = SimpleReplayPool(obs_space, act_space, new_pool_size)
 
@@ -824,7 +857,7 @@ class MOPO(RLAlgorithm):
             samples = self._model_pool.return_all_samples()
             # new_pool = SimpleReplayPool(obs_space, act_space, new_pool_size)
             if self.adapt:
-                new_pool = SimpleReplayTrajPool(obs_space, act_space, self.fix_rollout_length, new_pool_size)
+                new_pool = SimpleReplayTrajPool(obs_space, act_space, self.fix_rollout_length, self.network_kwargs["lstm_hidden_unit"], new_pool_size)
             else:
                 new_pool = SimpleReplayPool(obs_space, act_space, new_pool_size)
             new_pool.add_samples(samples)
@@ -845,16 +878,29 @@ class MOPO(RLAlgorithm):
         print('[ Model Rollout ] Starting | Epoch: {} | Rollout length: {} | Batch size: {} | Type: {} | Adapt: {}'.format(
             self._epoch, self._rollout_length, rollout_batch_size, self._model_type, self.adapt
         ))
-        batch = self.sampler.random_batch(rollout_batch_size)
+        if not self.adapt:
+            batch = self.sampler.random_batch(rollout_batch_size)
+        else:
+            batch = self._env_pool.random_batch_for_initial(rollout_batch_size)
         obs = batch['observations']
-        steps_added = []
+        last_action = batch['last_actions']
         hidden = self.make_init_hidden(obs.shape[0])
+        if self.adapt:
+            hidden_value = batch['value_hidden']
+            hidden_policy = batch['policy_hidden']
+        else:
+            hidden_value = hidden[0]
+            hidden_policy = hidden[0]
+        steps_added = []
+
+        hidden = (hidden_policy, np.expand_dims(last_action, 1))
         current_nonterm = np.ones((len(obs)), dtype=bool)
         sample_list = []
         samples = None
         ret = np.zeros((len(obs), 1))
         penalty_ret = np.zeros((len(obs), 1))
         last_time = time.time()
+
         for i in range(self._rollout_length):
             # print('[ DEBUG ] obs shape: {}'.format(obs.shape))
             lst_action = hidden[1]
@@ -889,7 +935,8 @@ class MOPO(RLAlgorithm):
             samples = {'observations': obs, 'actions': act, 'next_observations': next_obs,
                        'rewards': rew, 'terminals': term,
                        'last_actions': lst_action.squeeze(1),
-                       'valid': current_nonterm.reshape(-1, 1)}
+                       'valid': current_nonterm.reshape(-1, 1),
+                       'value_hidden': hidden_value, 'policy_hidden': hidden_policy}
             if not self.adapt:
                 self._model_pool.add_samples(samples)
             else:
@@ -1027,8 +1074,8 @@ class MOPO(RLAlgorithm):
             self._terminals_ph: resize(batch['terminals']),
             self._valid_ph: resize(batch['valid']),
             self.seq_len: np.sum(batch['valid'], axis=1).squeeze(),
-            self._prev_state_p_ph: self.make_init_hidden(batch['observations'].shape[0])[0],
-            self._prev_state_v_ph: self.make_init_hidden(batch['observations'].shape[0])[0],
+            self._prev_state_p_ph: batch['policy_hidden'][:, 0],
+            self._prev_state_v_ph: batch['value_hidden'][:, 0],
             self._last_actions_ph: resize(batch['last_actions'])
         }
         # for k, v in feed_dict.items():

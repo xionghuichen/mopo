@@ -74,7 +74,7 @@ class SimpleReplayPool(FlexibleReplayPool):
             'next_observations': {
                 'shape': active_observation_shape,
                 'dtype': 'float32'
-            },
+            }
         }
 
         super(SimpleReplayPool, self).__init__(
@@ -124,10 +124,11 @@ class SimpleReplayPool(FlexibleReplayPool):
 
 
 class SimpleReplayTrajPool(FlexibleReplayPool):
-    def __init__(self, observation_space, action_space, max_traj_len, *args, **kwargs):
+    def __init__(self, observation_space, action_space, max_traj_len, hidden_length, *args, **kwargs):
         self._observation_space = observation_space
         self._action_space = action_space
         self.max_traj_len = max_traj_len
+        self.hidden_length = hidden_length
 
         active_size = sum(
             np.prod(observation_space.spaces[key].shape)
@@ -165,6 +166,14 @@ class SimpleReplayTrajPool(FlexibleReplayPool):
                 'shape': (self.max_traj_len, *active_observation_shape),
                 'dtype': 'float32'
             },
+            'policy_hidden': {
+                'shape': (self.max_traj_len, self.hidden_length),
+                'dtype': 'float32'
+            },
+            'value_hidden': {
+                'shape': (self.max_traj_len, self.hidden_length),
+                'dtype': 'float32'
+            },
         }
 
         super(SimpleReplayTrajPool, self).__init__(
@@ -177,6 +186,30 @@ class SimpleReplayTrajPool(FlexibleReplayPool):
         dict_observations = defaultdict(list)
         return super(SimpleReplayTrajPool, self).add_samples(samples)
 
+    def random_batch_for_initial(self, batch_size):
+        # random_indices = self.random_indices(batch_size)
+        valids = np.sum(self.fields['valid'], axis=1).squeeze(-1)[:self.size]
+        # print(valids, np.min(valids))
+        first_ind = np.random.choice(np.arange(self.size), p=valids/np.sum(valids), size=(batch_size, ))
+        second_ind = []
+        for ind, item in enumerate(first_ind):
+            second_ind.append(np.random.randint(valids[item]))
+        indices = [(a, b) for a, b in zip(first_ind, second_ind)]
+        return self.batch_by_double_index(
+            indices)
+    def batch_by_double_index(self, indices):
+        batch = {
+
+        }
+        for field in self.field_names:
+            shapes = self.fields[field].shape
+            shapes = (len(indices), shapes[-1])
+            data = np.zeros(shapes)
+            for ind, item in enumerate(indices):
+                # print(self.fields[field].shape, data[ind].shape, self.fields[field][item[0], item[1]].shape, item)
+                data[ind] = self.fields[field][item[0], item[1]]
+            batch[field] = data
+        return batch
     def batch_by_indices(self,
                          indices,
                          field_name_filter=None,

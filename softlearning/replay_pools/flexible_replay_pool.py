@@ -55,16 +55,18 @@ class FlexibleReplayPool(ReplayPool):
         self.add_samples(samples)
 
     def add_samples(self, samples):
+        # if 'infos' not in samples:
+        #     samples['infos'] = {}
         field_names = list(samples.keys())
         num_samples = samples[field_names[0]].shape[0]
         index = np.arange(
             self._pointer, self._pointer + num_samples) % self._max_size
-        # print(self.field_names)
         for field_name in self.field_names:
+            # print(field_name)
             default_value = (
                 self.fields_attrs[field_name].get('default_value', 0.0))
             values = samples.get(field_name, default_value)
-            if field_name not in samples.keys() and field_name in samples['infos'][0].keys():
+            if field_name not in samples.keys() and 'infos' in samples and field_name in samples['infos'][0].keys():
                 values = np.expand_dims(np.array([samples['infos'][i].get(field_name, default_value) for i in range(num_samples)]), axis=1)
             try:
                 assert values.shape[0] == num_samples, f'value shape: {values.shape[0]}, expected: {num_samples}'
@@ -76,8 +78,9 @@ class FlexibleReplayPool(ReplayPool):
                 self.fields[field_name][index] = values
             except Exception as e:
                 import traceback
-                print('[ DEBUG ] errors occurs: {e}')
                 traceback.print_exc(limit=10)
+                print('[ DEBUG ] errors occurs: {}'.format(e))
+
                 import pdb; pdb.set_trace()
         self._advance(num_samples)
 
