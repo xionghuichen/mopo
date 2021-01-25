@@ -44,7 +44,7 @@ params = {
 exp_num = len(params['info'])
 
 template = docker_template + 'export CUDA_VISIBLE_DEVICES={0} && cd {1} && pip install -e . ' \
-           '&& python simple_run/main.py {2}'
+           '&& python simple_run/main.py \"{2}\"'
 template2 = docker_template_port + '"sleep 25 && cd {0} && tensorboard --logdir=./log/policy_learn"'
 
 for i in range(exp_num):
