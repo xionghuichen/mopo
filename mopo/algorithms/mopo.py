@@ -783,7 +783,7 @@ class MOPO(RLAlgorithm):
             for k, v in diagnostics.items():
                 # print('[ DEBUG ] epoch: {} diagnostics k: {}, v: {}'.format(self._epoch, k, v))
                 self._writer.add_scalar(k, v, self._epoch)
-            if epoch % 4 == 0:
+            if self._epoch % 4 == 0:
                 self._reinit_pool()
             yield diagnostics
 
