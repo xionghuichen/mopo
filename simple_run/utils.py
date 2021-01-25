@@ -239,6 +239,14 @@ def get_parser(allow_policy_list=False):
         '--info', type=str, default='default_info')
 
     parser.add_argument(
+        '--length', type=int, default=-1)
+    parser.add_argument(
+        '--elite_num', type=int, default=-1)
+    parser.add_argument(
+        '--penalty_coeff', type=float, default=-1.0
+    )
+
+    parser.add_argument(
         '--model_suffix', type=str, default='0')
     parser.add_argument('--use_adapt', action='store_true')
     parser.add_argument(

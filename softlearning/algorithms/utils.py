@@ -49,6 +49,12 @@ def get_algorithm_from_variant(variant,  *args, **kwargs):
         exp_name += '_smv'
     algorithm_kwargs["model_name"] = exp_name + '_1_{}'.format(variant['model_suffix'])
     algorithm_kwargs["tester"] = kwargs['tester']
+    if variant['length'] > 0:
+        algorithm_kwargs['rollout_length'] = variant['length']
+    if variant['penalty_coeff'] >= 0:
+        algorithm_kwargs['penalty_coeff'] = variant['penalty_coeff']
+    if variant['elite_num'] > 0:
+        algorithm_kwargs['num_elites'] = variant['elite_num']
     kwargs = {**kwargs, **algorithm_kwargs.toDict()}
     kwargs['adapt'] = adapt
     print("[ DEBUG ]: kwargs to net is {}".format(kwargs))

@@ -8,6 +8,7 @@ from numbers import Number
 from itertools import count
 import gtimer as gt
 import pdb
+import time
 
 import numpy as np
 import tensorflow as tf
@@ -112,12 +113,15 @@ class MOPO(RLAlgorithm):
         """
 
         super(MOPO, self).__init__(**kwargs)
-        print("[ DEBUG ]: model name: {}".format(model_name))
+        print("\n\n[ DEBUG ]: model name: {}, penalty coeff: {}, elite num: {}, model_num: {}, rollout_length: {}\n\n".format(model_name, penalty_coeff, num_elites, num_networks, rollout_length))
+
         self.tester = tester
+        final_len = len(model_name.split('_')[-1])
         if '_smv' in model_name:
-            self._env_name = model_name[:-8] + '-v0'
+            self._env_name = model_name[:-(7+final_len)] + '-v0'
         else:
-            self._env_name = model_name[:-4] + '-v0'
+            self._env_name = model_name[:-(3+final_len)] + '-v0'
+        print('[ DEBUG ] env name is {}'.format(self._env_name))
         if self._env_name in infos.REF_MIN_SCORE:
             self.min_ret = infos.REF_MIN_SCORE[self._env_name]
             self.max_ret = infos.REF_MAX_SCORE[self._env_name]
@@ -847,6 +851,10 @@ class MOPO(RLAlgorithm):
         hidden = self.make_init_hidden(obs.shape[0])
         current_nonterm = np.ones((len(obs)), dtype=bool)
         sample_list = []
+        samples = None
+        ret = np.zeros((len(obs), 1))
+        penalty_ret = np.zeros((len(obs), 1))
+        last_time = time.time()
         for i in range(self._rollout_length):
             # print('[ DEBUG ] obs shape: {}'.format(obs.shape))
             lst_action = hidden[1]
@@ -857,22 +865,31 @@ class MOPO(RLAlgorithm):
                 # act_ = self._policy.actions_np(obs)
                 act_, hidden = self.get_action_meta(obs, hidden)
                 act = np.random.uniform(low=-1, high=1, size=act_.shape)
-            print('[ DEBUG ] obs shape: {}, act shape: {}, non term number: {}'.format(obs.shape, act.shape, current_nonterm.sum()))
+            print('[ DEBUG ] obs shape: {}, act shape: {}, non term number: {}, time_period: {}'.format(obs.shape, act.shape, current_nonterm.sum(), time.time() - last_time))
+            last_time = time.time()
             if self._model_type == 'identity':
                 next_obs = obs
-                rew = np.zeros((len(obs), 1))
+                unpenalized_rewards = penalty = rew = np.zeros((len(obs), 1))
                 term = (np.ones((len(obs), 1)) * self._identity_terminal).astype(np.bool)
                 info = {}
             else:
                 # print("act: {}, obs: {}".format(act.shape, obs.shape))
                 next_obs, rew, term, info = self.fake_env.step(obs, act, **kwargs)
+                unpenalized_rewards = info['unpenalized_rewards']
+                penalty = info['penalty']
+            # print('[ DEBUG ] size of unpenalized_rewards: {}, size of current_nonterm: {}, size of penalty: {}'.format(
+            #     unpenalized_rewards.shape, current_nonterm.shape, penalty.shape
+            # ))
+            ret = ret + unpenalized_rewards * current_nonterm.reshape((-1, 1))
+            penalty_ret = penalty_ret + penalty * current_nonterm.reshape((-1, 1))
             steps_added.append(len(obs))
             nonterm_mask = ~term.squeeze(-1)
             assert current_nonterm.shape == nonterm_mask.shape
             # print('size of last action: ', lst_action.shape, obs.shape, lst_action.squeeze(1).shape)
             samples = {'observations': obs, 'actions': act, 'next_observations': next_obs,
                        'rewards': rew, 'terminals': term,
-                       'last_actions': lst_action.squeeze(1), 'valid': current_nonterm.reshape(-1, 1)}
+                       'last_actions': lst_action.squeeze(1),
+                       'valid': current_nonterm.reshape(-1, 1)}
             if not self.adapt:
                 self._model_pool.add_samples(samples)
             else:
@@ -893,7 +910,10 @@ class MOPO(RLAlgorithm):
                 # print(k, data[0])
             self._model_pool.add_samples(samples)
         mean_rollout_length = sum(steps_added) / rollout_batch_size
-        rollout_stats = {'mean_rollout_length': mean_rollout_length}
+        rollout_stats = {'mean_rollout_length': mean_rollout_length,
+                         'mean_rollout_reward': np.mean(samples['rewards']),
+                         'valid_num': np.sum(samples['valid']), 'origin_ret': np.mean(ret), 'penalty_ret': np.mean(penalty_ret)}
+
         print('[ Model Rollout ] Added: {:.1e} | Model pool: {:.1e} (max {:.1e}) | Length: {} | Train rep: {}'.format(
             sum(steps_added), self._model_pool.size, self._model_pool._max_size, mean_rollout_length, self._n_train_repeat
         ))

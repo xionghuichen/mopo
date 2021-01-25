@@ -21,7 +21,9 @@ def get_variant_spec(command_line_args):
     variant_spec["info"] = command_line_args.info
     variant_spec['model_suffix'] = command_line_args.model_suffix
     variant_spec['use_adapt'] = command_line_args.use_adapt
-
+    variant_spec['length'] = command_line_args.length
+    variant_spec['penalty_coeff'] = command_line_args.penalty_coeff
+    variant_spec['elite_num'] = command_line_args.elite_num
     return variant_spec
 
 
@@ -146,7 +148,7 @@ def get_package_path():
     return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # python simple_run/main.py --config examples.config.d4rl.halfcheetah_random
-# python simple_run/main.py --config examples.config.d4rl.halfcheetah_mixed --model_suffix 20
+# python simple_run/main.py --config examples.config.d4rl.halfcheetah_random --use_adapt --info random
 def main():
     import sys
     example_args = get_parser().parse_args(sys.argv[1:])
