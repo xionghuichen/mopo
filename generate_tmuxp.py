@@ -10,8 +10,9 @@ base_path = get_base_path()
 docker_path = "/root/mopo"
 path = docker_path
 tb_port = 6010
+user_name = 'amax'
 
-docker_template = f'docker run --rm -it --shm-size 50gb -v {base_path}:{docker_path} sanluosizhou/selfdl:mopo -c '
+docker_template = f'docker run --rm -it --shm-size 50gb -v {base_path}:{docker_path} -v /home/{user_name}/.d4rl:/root/.d4rl sanluosizhou/selfdl:mopo -c '
 docker_template_port = f'docker run --rm -it --shm-size 50gb -v {base_path}:{docker_path} -p 6006:{tb_port} sanluosizhou/selfdl:mopo -c '
 
 params = {
