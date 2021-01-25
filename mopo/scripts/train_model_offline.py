@@ -41,7 +41,7 @@ def main(args):
                 batch_size=args.batch_size, holdout_ratio=args.holdout_ratio, max_epochs=args.max_epochs, max_t=args.max_t)
     model.save(args.model_dir, args.num_networks)
 
-# python mopo/scripts/train_model_offline.py --num-networks 7 --separate-mean-var --env halfcheetah --quality medium-expert
+# python mopo/scripts/train_model_offline.py --num-networks 7 --separate-mean-var --env hopper --quality random
 # python mopo/scripts/train_model_offline.py --num-networks 7 --env halfcheetah --quality medium-expert
 # python mopo/scripts/train_model_offline.py --num-networks 50 --env halfcheetah --quality medium-replay --separate-mean-var
 

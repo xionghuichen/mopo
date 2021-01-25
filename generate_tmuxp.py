@@ -5,7 +5,7 @@ import os
 
 def get_base_path():
     return os.path.dirname(os.path.abspath(__file__))
-config = {"session_name": "run-all-1116", "windows": []}
+config = {"session_name": "run-all-1126", "windows": []}
 base_path = get_base_path()
 docker_path = "/root/mopo"
 path = docker_path
@@ -13,7 +13,7 @@ tb_port = 6010
 user_name = 'amax'
 
 docker_template = f'docker run --rm -it --shm-size 50gb -v {base_path}:{docker_path} -v /home/{user_name}/.d4rl:/root/.d4rl sanluosizhou/selfdl:mopo -c '
-docker_template_port = f'docker run --rm -it --shm-size 50gb -v {base_path}:{docker_path} -p 6006:{tb_port} sanluosizhou/selfdl:mopo -c '
+docker_template_port = f'docker run --rm -it --shm-size 50gb -v {base_path}:{docker_path} -p {tb_port}:6006 sanluosizhou/selfdl:mopo -c '
 
 params = {
     'config': [
@@ -42,6 +42,29 @@ params = {
     'elite_num': [None],
     'model_suffix': [None]
 }
+
+params = {
+    'config': [
+                "examples.config.d4rl.hopper_mixed",
+                "examples.config.d4rl.hopper_medium_expert",
+                "examples.config.d4rl.hopper_medium",
+                "examples.config.d4rl.hopper_random",
+               ],
+    'use_adapt': [True],
+    'info': [
+        'origin_mixed',
+        'origin_medium_expert',
+        'origin_medium',
+        'origin_random',
+             ],
+    'length': [None, None, None, None],
+    'penalty_coeff': [None, None, None, None],
+    'elite_num': [None],
+    'model_suffix': [None]
+}
+
+
+
 exp_num = len(params['info'])
 
 template = docker_template + '\"export CUDA_VISIBLE_DEVICES={0} && cd {1} && pip install -e . ' \

@@ -43,10 +43,13 @@ def restore_pool_d4rl(replay_pool, name, adapt=False, maxlen=5, policy_hook=None
     last_start = 0
     traj_num = 1
     traj_lens = []
+    print('[ DEBUG ] obs shape: ', data['observations'].shape)
     for i in range(data['observations'].shape[0]):
         flag = True
         if i >= 1:
             flag = (data['observations'][i] == data['next_observations'][i-1]).all()
+            if data['terminals'][i-1]:
+                flag = False
         if not flag:
             data['last_actions'][i][:] = 0
             data['first_step'][i][:] = 1
