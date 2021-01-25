@@ -581,18 +581,35 @@ class MOPO(RLAlgorithm):
 
 
     def get_action_hidden(self, state, action, last_action, length):
-        hidden = self.make_init_hidden(state.shape[0])[0]
-        with self._session.as_default():
-            feed_dict = {
-                self._observations_ph: state,
-                self._prev_state_p_ph: hidden,
-                self._prev_state_v_ph: hidden,
-                self._last_actions_ph: last_action,
-                self.seq_len: length,
-                self._actions_ph: action,
-            }
-            hidden_policy, hidden_value = self._session.run([self.rnn_policy_out, self.rnn_value_out], feed_dict=feed_dict)
-        return hidden_policy, hidden_value
+        def get_hidden(state_, action_, last_action_, length_):
+            hidden = self.make_init_hidden(state_.shape[0])[0]
+            with self._session.as_default():
+                feed_dict = {
+                    self._observations_ph: state_,
+                    self._prev_state_p_ph: hidden,
+                    self._prev_state_v_ph: hidden,
+                    self._last_actions_ph: last_action_,
+                    self.seq_len: length_,
+                    self._actions_ph: action_,
+                }
+                hidden_policy, hidden_value = self._session.run([self.rnn_policy_out, self.rnn_value_out], feed_dict=feed_dict)
+            return hidden_policy, hidden_value
+        traj_num = state.shape[0]
+        max_traj_onetime=400
+        if traj_num < max_traj_onetime:
+            return get_hidden(state, action, last_action, length)
+        else:
+            hidden_polies, hidden_values = [], []
+            for i in range(int(np.ceil(traj_num / max_traj_onetime))):
+                map_func = lambda x: x[i * max_traj_onetime : min((i+1) * max_traj_onetime, traj_num)]
+                state_it, action_it, last_action_it, length_it = map(map_func, [state, action, last_action, length])
+                hidden_policy_it, hidden_value_it = get_hidden(state_it, action_it, last_action_it, length_it)
+                hidden_polies.append(hidden_policy_it)
+                hidden_values.append(hidden_value_it)
+            hidden_policy = np.concatenate(hidden_polies, axis=0)
+            hidden_value = np.concatenate(hidden_values, axis=0)
+            return hidden_policy, hidden_value
+
 
     def get_action_meta(self, state, hidden, deterministic=False, lens=None):
         assert isinstance(hidden, tuple), 'hidden: (hidden state of policy, lst_action)'

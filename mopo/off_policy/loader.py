@@ -59,6 +59,8 @@ def restore_pool_d4rl(replay_pool, name, adapt=False, maxlen=5, policy_hook=None
             last_start = i
             traj_num += 1
             traj_lens.append(traj_len)
+            if traj_len > 999:
+                print('[ DEBUG + WARN ]: trajectory length is too large: current step is ', i, traj_num,)
     traj_lens.append(data['observations'].shape[0] - last_start)
 
     print("[ DEBUG ]: adapt is ", adapt)
