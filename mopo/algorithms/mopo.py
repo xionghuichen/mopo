@@ -800,7 +800,7 @@ class MOPO(RLAlgorithm):
             for k, v in diagnostics.items():
                 # print('[ DEBUG ] epoch: {} diagnostics k: {}, v: {}'.format(self._epoch, k, v))
                 self._writer.add_scalar(k, v, self._epoch)
-            if self._epoch % 4 == 0:
+            if self._epoch % 4 == 0 and self.adapt:
                 self._reinit_pool()
             yield diagnostics
 
@@ -1080,6 +1080,12 @@ class MOPO(RLAlgorithm):
     def _get_feed_dict(self, iteration, batch):
         """Construct TensorFlow feed_dict from sample batch."""
         state_dim = len(batch['observations'].shape)
+        if self.adapt:
+            policy_hidden = batch['policy_hidden'][:, 0]
+            value_hidden = batch['value_hidden'][:, 0]
+        else:
+            policy_hidden = self.make_init_hidden(batch['observations'].shape[0])[0]
+            value_hidden = policy_hidden
         resize = lambda x: x[None] if state_dim == 2 else x
         # print('[ DEBUG ]: len shape: ', np.shape(np.sum(batch['valid'], axis=1).squeeze()), np.sum(batch['valid'], axis=1).squeeze())
         # TODO: need to set the
@@ -1091,8 +1097,8 @@ class MOPO(RLAlgorithm):
             self._terminals_ph: resize(batch['terminals']),
             self._valid_ph: resize(batch['valid']),
             self.seq_len: np.sum(batch['valid'], axis=1).squeeze(),
-            self._prev_state_p_ph: batch['policy_hidden'][:, 0],
-            self._prev_state_v_ph: batch['value_hidden'][:, 0],
+            self._prev_state_p_ph: policy_hidden,
+            self._prev_state_v_ph: value_hidden,
             self._last_actions_ph: resize(batch['last_actions'])
         }
         # for k, v in feed_dict.items():

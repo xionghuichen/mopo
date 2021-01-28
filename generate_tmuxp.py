@@ -43,27 +43,47 @@ params = {
     'model_suffix': [None]
 }
 
+# params = {
+#     'config': [
+#                 "examples.config.d4rl.hopper_mixed",
+#                 "examples.config.d4rl.hopper_medium_expert",
+#                 "examples.config.d4rl.hopper_medium",
+#                 "examples.config.d4rl.hopper_random",
+#                 "examples.config.d4rl.walker2d_mixed",
+#                 "examples.config.d4rl.walker2d_medium_expert",
+#                 "examples.config.d4rl.walker2d_medium",
+#                 "examples.config.d4rl.walker2d_random",
+#                ],
+#     'use_adapt': [False],
+#     'info': [
+#         'origin_mixed_hopper_fc',
+#         'origin_medium_expert_hopper_fc',
+#         'origin_medium_hopper_fc',
+#         'origin_random_hopper_fc',
+#         'origin_mixed_walker2d_fc',
+#         'origin_medium_expert_walker2d_fc',
+#         'origin_medium_walker2d_fc',
+#         'origin_random_walker2d_fc',
+#              ],
+#     'length': [None],
+#     'penalty_coeff': [None],
+#     'elite_num': [None],
+#     'model_suffix': [None]
+# }
+
 params = {
     'config': [
-                "examples.config.d4rl.hopper_mixed",
-                "examples.config.d4rl.hopper_medium_expert",
-                "examples.config.d4rl.hopper_medium",
-                "examples.config.d4rl.hopper_random",
+                "examples.config.d4rl.halfcheetah_medium_expert",
                ],
     'use_adapt': [True],
     'info': [
-        'origin_mixed',
         'origin_medium_expert',
-        'origin_medium',
-        'origin_random',
              ],
-    'length': [None, None, None, None],
-    'penalty_coeff': [None, None, None, None],
+    'length': [None],
+    'penalty_coeff': [None],
     'elite_num': [None],
     'model_suffix': [None]
 }
-
-
 
 exp_num = len(params['info'])
 
@@ -72,7 +92,7 @@ template = docker_template + '\"export CUDA_VISIBLE_DEVICES={0} && cd {1} && pip
 template2 = docker_template_port + '"sleep 25 && cd {0} && tensorboard --logdir=./log/policy_learn"'
 
 for i in range(exp_num):
-    device_ind = i % 2
+    device_ind = i % 1 + 1
     panes_list = []
     params_str = ''
     for k, v in params.items():

@@ -1,2 +1,2 @@
 #! /bin/bash
-python generate_tmuxp.py && tmuxp load run_all.yaml
+python3 generate_tmuxp.py && tmuxp load run_all.yaml
