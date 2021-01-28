@@ -20,7 +20,7 @@ def get_package_path():
 def main(args):
     np.random.seed(args.seed)
     tf.set_random_seed(args.seed)
-    tester.configure(task_name='model_learn', private_config_path=os.path.join(get_package_path(), 'rla_config.yaml'),
+    tester.configure(task_name='model_learn', private_config_path=os.path.join(get_package_path(), 'rla_config_model_learn.yaml'),
                      run_file='train_model_offline.py', log_root=get_package_path())
     tester.log_files_gen()
     tester.print_args()

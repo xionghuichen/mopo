@@ -13,11 +13,17 @@ BACKUP_CONFIG:
   backup_code_dir:
     - './mopo'
 
+LOG_USED:
+  - 'stdout'
+  - 'log'
+  - 'tensorboard'
+  - 'csv'
+
 DL_FRAMEWORK: 'tensorflow'
-SEND_LOG_FILE: True
+SEND_LOG_FILE: False
 
 REMOTE_SETTING:
-  ftp_server: '114.212.20.193'
+  ftp_server: '114.212.22.124'
   username: 'amax'
-  password: 'zp19950310'
-  remote_log_root: 'Project/IMG-SRG/SRG/codas/'
+  password: 'Amax1979!'
+  remote_log_root: 'chenxh/mopo/'

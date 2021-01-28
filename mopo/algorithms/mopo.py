@@ -152,7 +152,7 @@ class MOPO(RLAlgorithm):
         self._rollout_random = rollout_random
         self._real_ratio = real_ratio
         # TODO: RLA writer (implemented with tf) should be compatible with the Writer object (implemented with tbx)
-        self._log_dir = tester.log_dir
+        self._log_dir = os.path.join(tester.log_dir)
         # self._writer = tester.writer
         self._writer = Writer(self._log_dir)
 
