@@ -19,10 +19,10 @@ LOG_USED:
   - 'csv'
 
 DL_FRAMEWORK: 'tensorflow'
-SEND_LOG_FILE: False
+SEND_LOG_FILE: True
 
 REMOTE_SETTING:
   ftp_server: '114.212.22.124'
   username: 'amax'
   password: 'Amax1979!'
-  remote_log_root: 'chenxh/mopo/'
+  remote_log_root: 'luofm/mopo/'
