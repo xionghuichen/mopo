@@ -1,0 +1,15 @@
+session_name: run-all-1126
+windows:
+- layout: tiled
+  panes:
+  - docker run --rm -it --shm-size 50gb -v /Users/fanmingluo/Code/py/mopo:/root/mopo
+    -v /home/amax/.d4rl:/root/.d4rl sanluosizhou/selfdl:mopo -c "export CUDA_VISIBLE_DEVICES=1
+    && cd /root/mopo && pip install -e . && python simple_run/main.py  --config examples.config.d4rl.halfcheetah_medium_expert  --use_adapt  --info
+    origin_medium_expert "
+  window_name: origin_medium_expert
+- layout: tiled
+  panes:
+  - docker run --rm -it --shm-size 50gb -v /Users/fanmingluo/Code/py/mopo:/root/mopo
+    -p 6010:6006 sanluosizhou/selfdl:mopo -c "sleep 25 && cd /root/mopo && tensorboard
+    --logdir=./log/policy_learn"
+  window_name: tensorboard
