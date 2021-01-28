@@ -25,6 +25,8 @@ def get_variant_spec(command_line_args):
     variant_spec['penalty_coeff'] = command_line_args.penalty_coeff
     variant_spec['elite_num'] = command_line_args.elite_num
     variant_spec['config'] = command_line_args.config
+    variant_spec['run_params']['seed'] = command_line_args.seed
+    variant_spec['retrain_model'] = command_line_args.retrain_model
     return variant_spec
 
 
@@ -198,7 +200,6 @@ def main():
                      run_file='main.py', log_root=get_package_path())
     tester.log_files_gen()
     tester.print_args()
-
 
     environment_params = variant['environment_params']
     training_environment = (get_environment_from_params(environment_params['training']))

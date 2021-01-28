@@ -44,6 +44,7 @@ def get_algorithm_from_variant(variant,  *args, **kwargs):
     algorithm_kwargs = deepcopy(algorithm_params['kwargs'])
     exp_name = variant['algorithm_params']["exp_name"]
     adapt = variant['use_adapt']
+    retrain_model = variant['retrain_model']
     exp_name = exp_name.replace('_', '-')
     if algorithm_kwargs['separate_mean_var']:
         exp_name += '_smv'
@@ -58,5 +59,9 @@ def get_algorithm_from_variant(variant,  *args, **kwargs):
     kwargs = {**kwargs, **algorithm_kwargs.toDict()}
     kwargs['adapt'] = adapt
     print("[ DEBUG ]: kwargs to net is {}".format(kwargs))
+    if retrain_model:
+        print('[ DEBUG ] retraining model... ')
+        print(kwargs)
+        kwargs['model_load_dir'] = None
     algorithm = ALGORITHM_CLASSES[algorithm_type](variant, *args, **kwargs)
     return algorithm
