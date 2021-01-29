@@ -690,7 +690,8 @@ class MOPO(RLAlgorithm):
         # train dynamics model offline
         max_epochs = 1 if self._model.model_loaded else None
         model_train_metrics = self._train_model(batch_size=256, max_epochs=max_epochs, holdout_ratio=0.2, max_t=self._max_model_t)
-
+        if max_epochs > 0:
+            self._model.save(self._log_dir, 0)
         model_metrics.update(model_train_metrics)
         self._log_model()
         gt.stamp('epoch_train_model')

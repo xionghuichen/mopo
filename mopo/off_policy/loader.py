@@ -208,8 +208,8 @@ def reset_hidden_state(replay_pool, name, maxlen=5, policy_hook=None):
     print('[ DEBUG ] reset_hidden_state: inferring hidden state done')
     data_new = {'policy_hidden': data['policy_hidden'],
             'value_hidden': data['value_hidden']}
-    data_adapt = {k: [] for k in data}
-    it_traj = {k: [] for k in data}
+    data_adapt = {k: [] for k in data_new}
+    it_traj = {k: [] for k in data_new}
     current_len = 0
     for start_ind in range(1):
         traj_start_ind = 0
