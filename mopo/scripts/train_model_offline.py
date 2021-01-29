@@ -14,12 +14,15 @@ def model_name(args):
     name += '_{}'.format(args.seed)
     return name
 
+
 def get_package_path():
     return os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 
 def main(args):
     np.random.seed(args.seed)
     tf.set_random_seed(args.seed)
+    args.separate_mean_var = not args.no_separate_mean_var
     tester.configure(task_name='model_learn', private_config_path=os.path.join(get_package_path(), 'rla_config_model_learn.yaml'),
                      run_file='train_model_offline.py', log_root=get_package_path())
     tester.log_files_gen()
@@ -57,7 +60,7 @@ if __name__ == '__main__':
 
     parser.add_argument('--seed', default=1, type=int)
     parser.add_argument('--model-type', default='mlp')
-    parser.add_argument('--separate-mean-var', action='store_true')
+    parser.add_argument('--no-separate-mean-var', action='store_true')
     parser.add_argument('--num-networks', default=7, type=int)
     parser.add_argument('--num-elites', default=5, type=int)
     parser.add_argument('--hidden-dim', default=200, type=int)
