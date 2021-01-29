@@ -133,6 +133,111 @@ def restore_pool_d4rl(replay_pool, name, adapt=False, maxlen=5, policy_hook=None
         return
     replay_pool.add_samples(data)
 
+def reset_hidden_state(replay_pool, name, maxlen=5, policy_hook=None):
+    import gym
+    import d4rl
+    env = gym.make(name)
+    get_hidden = policy_hook if policy_hook else None
+    mask_steps = env._max_episode_steps - 1
+    data = d4rl.qlearning_dataset(gym.make(name))
+    data['rewards'] = np.expand_dims(data['rewards'], axis=1)
+    data['terminals'] = np.expand_dims(data['terminals'], axis=1)
+    data['last_actions'] = np.concatenate((np.zeros((1, data['actions'].shape[1])), data['actions'][:-1, :]),
+                                          axis=0).copy()
+    # print(data['actions'] - data['last_actions'])
+    data['first_step'] = np.zeros_like(data['terminals'])
+    data['end_step'] = np.zeros_like(data['terminals'])
+    data['valid'] = np.ones_like(data['terminals'])
+    print('[ DEBUG ] reset_hidden_state: key in data: {}'.format(list(data.keys())))
+    max_traj_len = -1
+    last_start = 0
+    traj_num = 1
+    traj_lens = []
+    print('[ DEBUG ] reset_hidden_state, obs shape: ', data['observations'].shape)
+    for i in range(data['observations'].shape[0]):
+        flag = True
+        if i >= 1:
+            flag = (data['observations'][i] == data['next_observations'][i - 1]).all()
+            if data['terminals'][i - 1]:
+                flag = False
+        if not flag:
+            data['last_actions'][i, :] = 0
+            data['first_step'][i, :] = 1
+            data['end_step'][i - 1, :] = 1
+            traj_len = i - last_start
+            max_traj_len = max(max_traj_len, traj_len)
+            last_start = i
+            traj_num += 1
+            traj_lens.append(traj_len)
+            if traj_len > 999:
+                print('[ DEBUG + WARN ] reset_hidden_state: trajectory length is too large: current step is ', i, traj_num, )
+    # making init hidden state
+    # 1, making state and lst action
+    data['policy_hidden'] = None # np.zeros((data['last_actions'].shape[0], policy_hidden.shape[-1]))
+    data['value_hidden'] = None # np.zeros((data['last_actions'].shape[0], value_hidden.shape[-1]))
+    last_start_ind = 0
+    traj_num_to_infer = 400
+    for i_ter in range(int(np.ceil(traj_num / traj_num_to_infer))):
+        traj_lens_it = traj_lens[traj_num_to_infer * i_ter : min(traj_num_to_infer * (i_ter + 1), traj_num)]
+        states = np.zeros((len(traj_lens_it), max_traj_len, data['observations'].shape[-1]))
+        actions = np.zeros((len(traj_lens_it), max_traj_len, data['actions'].shape[-1]))
+        lst_actions = np.zeros((len(traj_lens_it), max_traj_len, data['last_actions'].shape[-1]))
+        start_ind = last_start_ind
+        for ind, item in enumerate(traj_lens_it):
+            states[ind, :item] = data['observations'][start_ind:(start_ind+item)]
+            lst_actions[ind, :item] = data['last_actions'][start_ind:(start_ind+item)]
+            actions[ind, :item] = data['actions'][start_ind:(start_ind+item)]
+            start_ind += item
+        print('[ DEBUG ] reset_hidden_state size of total env states: {}, actions: {}'.format(states.shape, actions.shape))
+        # state, action, last_action, length
+        policy_hidden_out, value_hidden_out = get_hidden(states, actions, lst_actions, np.array(traj_lens_it))
+        policy_hidden = np.concatenate((np.zeros((len(traj_lens_it), 1, policy_hidden_out.shape[-1])),
+                                        policy_hidden_out[:, :-1]), axis=-2)
+        value_hidden = np.concatenate((np.zeros((len(traj_lens_it), 1, value_hidden_out.shape[-1])),
+                                        value_hidden_out[:, :-1]), axis=-2)
+
+        start_ind = last_start_ind
+        for ind, item in enumerate(traj_lens_it):
+            if data['policy_hidden'] is None:
+                data['policy_hidden'] = np.zeros((data['last_actions'].shape[0], policy_hidden.shape[-1]))
+                data['value_hidden'] = np.zeros((data['last_actions'].shape[0], value_hidden.shape[-1]))
+            data['policy_hidden'][start_ind:(start_ind + item)] = policy_hidden[ind, :item]
+            data['value_hidden'][start_ind:(start_ind + item)] = value_hidden[ind, :item]
+            start_ind += item
+        last_start_ind = start_ind
+    print('[ DEBUG ] reset_hidden_state: inferring hidden state done')
+    data_new = {'policy_hidden': data['policy_hidden'],
+            'value_hidden': data['value_hidden']}
+    data_adapt = {k: [] for k in data}
+    it_traj = {k: [] for k in data}
+    current_len = 0
+    for start_ind in range(1):
+        traj_start_ind = 0
+        for i in range(data_new['policy_hidden'].shape[0]):
+            if i - traj_start_ind < start_ind:
+                continue
+            for k in data_new:
+                it_traj[k].append(data_new[k][i])
+            current_len += 1
+            if data['end_step'][i]:
+                traj_start_ind = i + 1
+                for j in range(maxlen - current_len):
+                    for k in data_new:
+                        it_traj[k].append(np.zeros_like(data_new[k][i]))
+                    current_len += 1
+            if current_len >= maxlen:
+                for k in data_adapt:
+                    data_adapt[k].append(np.expand_dims(np.array(it_traj[k]), 0))
+                it_traj = {k: [] for k in data_new}
+                current_len = 0
+    data_adapt = {k: np.vstack(v) for k, v in data_adapt.items()}
+    # data_adapt['last_actions'][:, 0] = 0
+    for k, v in data_adapt.items():
+        print('[ DEBUG ] reset_hidden_state:  key of env data: {}: value is {}'.format(k, v.shape))
+    replay_pool.restore_samples(data_adapt)
+    # print('[ DEBUG ] ----------')
+    # replay_pool.add_samples(data_adapt)
+
 
 def restore_pool_softlearning(replay_pool, experiment_root, max_size, save_path=None):
     print('[ mopo/off_policy ] Loading SAC replay pool from: {}'.format(experiment_root))
