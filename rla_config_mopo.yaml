@@ -19,7 +19,7 @@ LOG_USED:
   - 'csv'
 
 DL_FRAMEWORK: 'tensorflow'
-SEND_LOG_FILE: True
+SEND_LOG_FILE: False
 
 REMOTE_SETTING:
   ftp_server: '114.212.22.124'

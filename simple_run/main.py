@@ -195,7 +195,7 @@ def main():
     variant = copy.deepcopy(variant)
 
     tester.set_hyper_param(**variant)
-    tester.add_record_param(['config', 'use_adapt', 'info'])
+    tester.add_record_param(['config', 'use_adapt', 'info', 'run_params.seed'])
     tester.configure(task_name='policy_learn', private_config_path=os.path.join(get_package_path(), 'rla_config_mopo.yaml'),
                      run_file='main.py', log_root=get_package_path())
     tester.log_files_gen()
@@ -218,6 +218,7 @@ def main():
     ####
     if not variant['model_suffix'] == '0':
         variant['algorithm_params']['kwargs']['num_networks'] = int(variant['model_suffix'])
+        variant['algorithm_params']['kwargs']['num_elites'] = int(int(variant['model_suffix']) / 7 * 5)
     print("[ DEBUG ] KWARGS: {}".format(variant['algorithm_params']['kwargs']))
 
     algorithm = get_algorithm_from_variant(
