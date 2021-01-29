@@ -110,6 +110,8 @@ class FakeEnv:
                 penalty = np.amax(np.linalg.norm(ensemble_model_stds, axis=2), axis=0)
 
             penalty = np.expand_dims(penalty, 1)
+            # TODO (luofm): clip the penalty here !!!!! A HYPERPARAMETER
+            penalty = np.clip(penalty, a_max=4, a_min=None)
             assert penalty.shape == rewards.shape
             unpenalized_rewards = rewards
             penalized_rewards = rewards - self.penalty_coeff * penalty

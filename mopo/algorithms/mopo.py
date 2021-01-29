@@ -170,6 +170,14 @@ class MOPO(RLAlgorithm):
         observation_shape = self._training_environment.active_observation_shape
         action_shape = self._training_environment.action_space.shape
         self._pool = pool
+        total_samples = self._pool.return_all_samples()
+        self.min_rewards = np.min(total_samples['rewards']) - 4 * penalty_coeff
+        self.max_rewards = np.max(total_samples['rewards'])
+        print('[ DEBUG ] min rewards: {}, max rewards: {}, min rewards of penalty {}, clip(value, {}, {})'.format(self.min_rewards,
+                                                                                             self.max_rewards,
+                                                                                             4,
+                                                                                          self.min_rewards / (1 - discount),
+                                                                                          self.max_rewards / (1 - discount)))
         print('[ DEBUG ] pool.size=', pool.size)
 
         if self.adapt:
@@ -215,6 +223,7 @@ class MOPO(RLAlgorithm):
         self._pool_load_max_size = pool_load_max_size
 
         loader.restore_pool(self._pool, self._pool_load_path, self._pool_load_max_size, save_path=self._log_dir, adapt=False, maxlen=self.fix_rollout_length, policy_hook=get_hidden if self.adapt else None)
+
         if self.adapt:
             loader.restore_pool(self._env_pool, self._pool_load_path, self._pool_load_max_size, save_path=self._log_dir, adapt=self.adapt, maxlen=self.fix_rollout_length, policy_hook=get_hidden)
 
@@ -489,7 +498,8 @@ class MOPO(RLAlgorithm):
         q_target = td_target(
             reward=self._reward_scale * reward_ph[..., 0],
             discount=self._discount, next_value=(1 - done_ph[..., 0]) * next_value)
-
+        # add q_target clip
+        tf.clip_by_value(q_target, self.min_rewards / (1 - self._discount), self.max_rewards / (1 - self._discount))
 
 
         # assert q_target.shape.as_list() == [None, 1]
@@ -953,6 +963,8 @@ class MOPO(RLAlgorithm):
             nonterm_mask = ~term.squeeze(-1)
             assert current_nonterm.shape == nonterm_mask.shape
             # print('size of last action: ', lst_action.shape, obs.shape, lst_action.squeeze(1).shape)
+            # CLIP THE REWARDS HERE
+            rew = np.clip(rew, self.min_rewards, self.max_rewards)
             samples = {'observations': obs, 'actions': act, 'next_observations': next_obs,
                        'rewards': rew, 'terminals': term,
                        'last_actions': lst_action.squeeze(1),
