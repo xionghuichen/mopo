@@ -85,9 +85,9 @@ class FlexibleReplayPool(ReplayPool):
         self._advance(num_samples)
 
     def restore_samples(self, samples):
-        num_samples = samples[samples.keys()[0]].shape[0]
+        num_samples = samples[list(samples.keys())[0]].shape[0]
         index = np.arange(
-            0, self._pointer + num_samples) % self._max_size
+            0, num_samples) % self._max_size
         for key, values in samples.items():
             assert key in self.field_names
             self.fields[key][index] = values
