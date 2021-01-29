@@ -152,7 +152,7 @@ class MOPO(RLAlgorithm):
         self._rollout_random = rollout_random
         self._real_ratio = real_ratio
         # TODO: RLA writer (implemented with tf) should be compatible with the Writer object (implemented with tbx)
-        self._log_dir = tester.log_dir
+        self._log_dir = os.path.join(tester.log_dir)
         # self._writer = tester.writer
         self._writer = Writer(self._log_dir)
 
@@ -900,7 +900,7 @@ class MOPO(RLAlgorithm):
         else:
             batch = self._env_pool.random_batch_for_initial(rollout_batch_size)
         obs = batch['observations']
-        last_action = batch['last_actions']
+        lst_action = batch['last_actions']
         hidden = self.make_init_hidden(obs.shape[0])
         if self.adapt:
             hidden_value = batch['value_hidden']
@@ -910,7 +910,7 @@ class MOPO(RLAlgorithm):
             hidden_policy = hidden[0]
         steps_added = []
 
-        hidden = (hidden_policy, np.expand_dims(last_action, 1))
+        hidden = (hidden_policy, np.expand_dims(lst_action, 1))
         current_nonterm = np.ones((len(obs)), dtype=bool)
         sample_list = []
         samples = None
@@ -954,11 +954,18 @@ class MOPO(RLAlgorithm):
                        'last_actions': lst_action.squeeze(1),
                        'valid': current_nonterm.reshape(-1, 1),
                        'value_hidden': hidden_value, 'policy_hidden': hidden_policy}
+
             if not self.adapt:
+                samples = {k: v[current_nonterm] for k, v in samples.items()}
+                assert samples['valid'].all()
                 self._model_pool.add_samples(samples)
             else:
                 samples = {k: np.expand_dims(v, 1) for k, v in samples.items()}
                 sample_list.append(samples)
+            # print('[ DEBUG ]: obs: \n', samples['observations'], ', action: \n', samples['actions'], 'next_obs: \n',
+            #       samples['next_observations'],
+            #       ', term: \n', samples['terminals'], ', valid: \n', samples['valid'], ', last_action: \n',
+            #       samples['last_actions'], 'obs shape: ', samples['observations'].shape)
             current_nonterm = current_nonterm & nonterm_mask
             obs = next_obs
             # if nonterm_mask.sum() == 0:
@@ -978,7 +985,7 @@ class MOPO(RLAlgorithm):
                          'mean_rollout_reward': np.mean(samples['rewards']),
                          'valid_num': np.sum(samples['valid']), 'origin_ret': np.mean(ret), 'penalty_ret': np.mean(penalty_ret)}
 
-        print('[ Model Rollout ] Added: {:.1e} | Model pool: {:.1e} (max {:.1e}) | Length: {} | Train rep: {}'.format(
+        print('[ Model Rollout ] Added: {:.4e} | Model pool: {:.4e} (max {:.4e}) | Length: {} | Train rep: {}'.format(
             sum(steps_added), self._model_pool.size, self._model_pool._max_size, mean_rollout_length, self._n_train_repeat
         ))
         return rollout_stats

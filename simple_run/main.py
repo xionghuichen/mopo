@@ -24,6 +24,9 @@ def get_variant_spec(command_line_args):
     variant_spec['length'] = command_line_args.length
     variant_spec['penalty_coeff'] = command_line_args.penalty_coeff
     variant_spec['elite_num'] = command_line_args.elite_num
+    variant_spec['config'] = command_line_args.config
+    variant_spec['run_params']['seed'] = command_line_args.seed
+    variant_spec['retrain_model'] = command_line_args.retrain_model
     return variant_spec
 
 
@@ -192,12 +195,11 @@ def main():
     variant = copy.deepcopy(variant)
 
     tester.set_hyper_param(**variant)
-    tester.add_record_param(['run_params.seed', 'info'])
-    tester.configure(task_name='policy_learn', private_config_path=os.path.join(get_package_path(), 'rla_config.yaml'),
+    tester.add_record_param(['config', 'use_adapt', 'info'])
+    tester.configure(task_name='policy_learn', private_config_path=os.path.join(get_package_path(), 'rla_config_mopo.yaml'),
                      run_file='main.py', log_root=get_package_path())
     tester.log_files_gen()
     tester.print_args()
-
 
     environment_params = variant['environment_params']
     training_environment = (get_environment_from_params(environment_params['training']))

@@ -62,34 +62,43 @@ def restore_pool_d4rl(replay_pool, name, adapt=False, maxlen=5, policy_hook=None
             if traj_len > 999:
                 print('[ DEBUG + WARN ]: trajectory length is too large: current step is ', i, traj_num,)
     traj_lens.append(data['observations'].shape[0] - last_start)
-
+    assert len(traj_lens) == traj_num
     print("[ DEBUG ]: adapt is ", adapt)
     if adapt and policy_hook is not None:
         # making init hidden state
         # 1, making state and lst action
-        states = np.zeros((traj_num, max_traj_len, data['observations'].shape[-1]))
-        actions = np.zeros((traj_num, max_traj_len, data['actions'].shape[-1]))
-        lst_actions = np.zeros((traj_num, max_traj_len, data['last_actions'].shape[-1]))
-        start_ind = 0
-        for ind, item in enumerate(traj_lens):
-            states[ind, :item] = data['observations'][start_ind:(start_ind+item)]
-            lst_actions[ind, :item] = data['last_actions'][start_ind:(start_ind+item)]
-            actions[ind, :item] = data['actions'][start_ind:(start_ind+item)]
-            start_ind += item
-        print('[ DEBUG ] size of total env states: {}, actions: {}'.format(states.shape, actions.shape))
-        # state, action, last_action, length
-        policy_hidden_out, value_hidden_out = get_hidden(states, actions, lst_actions, np.array(traj_lens))
-        policy_hidden = np.concatenate((np.zeros((len(traj_lens), 1, policy_hidden_out.shape[-1])),
-                                        policy_hidden_out[:, :-1]), axis=-2)
-        value_hidden = np.concatenate((np.zeros((len(traj_lens), 1, value_hidden_out.shape[-1])),
-                                        value_hidden_out[:, :-1]), axis=-2)
-        data['policy_hidden'] = np.zeros((data['last_actions'].shape[0], policy_hidden.shape[-1]))
-        data['value_hidden'] = np.zeros((data['last_actions'].shape[0], value_hidden.shape[-1]))
-        start_ind = 0
-        for ind, item in enumerate(traj_lens):
-            data['policy_hidden'][start_ind:(start_ind + item)] = policy_hidden[ind, :item]
-            data['value_hidden'][start_ind:(start_ind + item)] = value_hidden[ind, :item]
-            start_ind += item
+        data['policy_hidden'] = None # np.zeros((data['last_actions'].shape[0], policy_hidden.shape[-1]))
+        data['value_hidden'] = None # np.zeros((data['last_actions'].shape[0], value_hidden.shape[-1]))
+        last_start_ind = 0
+        traj_num_to_infer = 400
+        for i_ter in range(int(np.ceil(traj_num / traj_num_to_infer))):
+            traj_lens_it = traj_lens[traj_num_to_infer * i_ter : min(traj_num_to_infer * (i_ter + 1), traj_num)]
+            states = np.zeros((len(traj_lens_it), max_traj_len, data['observations'].shape[-1]))
+            actions = np.zeros((len(traj_lens_it), max_traj_len, data['actions'].shape[-1]))
+            lst_actions = np.zeros((len(traj_lens_it), max_traj_len, data['last_actions'].shape[-1]))
+            start_ind = last_start_ind
+            for ind, item in enumerate(traj_lens_it):
+                states[ind, :item] = data['observations'][start_ind:(start_ind+item)]
+                lst_actions[ind, :item] = data['last_actions'][start_ind:(start_ind+item)]
+                actions[ind, :item] = data['actions'][start_ind:(start_ind+item)]
+                start_ind += item
+            print('[ DEBUG ] size of total env states: {}, actions: {}'.format(states.shape, actions.shape))
+            # state, action, last_action, length
+            policy_hidden_out, value_hidden_out = get_hidden(states, actions, lst_actions, np.array(traj_lens_it))
+            policy_hidden = np.concatenate((np.zeros((len(traj_lens_it), 1, policy_hidden_out.shape[-1])),
+                                            policy_hidden_out[:, :-1]), axis=-2)
+            value_hidden = np.concatenate((np.zeros((len(traj_lens_it), 1, value_hidden_out.shape[-1])),
+                                            value_hidden_out[:, :-1]), axis=-2)
+
+            start_ind = last_start_ind
+            for ind, item in enumerate(traj_lens_it):
+                if data['policy_hidden'] is None:
+                    data['policy_hidden'] = np.zeros((data['last_actions'].shape[0], policy_hidden.shape[-1]))
+                    data['value_hidden'] = np.zeros((data['last_actions'].shape[0], value_hidden.shape[-1]))
+                data['policy_hidden'][start_ind:(start_ind + item)] = policy_hidden[ind, :item]
+                data['value_hidden'][start_ind:(start_ind + item)] = value_hidden[ind, :item]
+                start_ind += item
+            last_start_ind = start_ind
     print('[ DEBUG ]: inferring hidden state done')
     if adapt:
 

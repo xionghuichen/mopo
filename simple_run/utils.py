@@ -243,12 +243,15 @@ def get_parser(allow_policy_list=False):
     parser.add_argument(
         '--elite_num', type=int, default=-1)
     parser.add_argument(
+        '--seed', type=int, default=88)
+    parser.add_argument(
         '--penalty_coeff', type=float, default=-1.0
     )
 
     parser.add_argument(
         '--model_suffix', type=str, default='0')
     parser.add_argument('--use_adapt', action='store_true')
+    parser.add_argument('--retrain_model', action='store_true')
     parser.add_argument(
         '--checkpoint-replay-pool',
         type=lambda x: bool(strtobool(x)),

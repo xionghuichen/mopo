@@ -14,14 +14,16 @@ def model_name(args):
     name += '_{}'.format(args.seed)
     return name
 
+
 def get_package_path():
     return os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 
 def main(args):
     np.random.seed(args.seed)
     tf.set_random_seed(args.seed)
     args.separate_mean_var = not args.no_separate_mean_var
-    tester.configure(task_name='model_learn', private_config_path=os.path.join(get_package_path(), 'rla_config.yaml'),
+    tester.configure(task_name='model_learn', private_config_path=os.path.join(get_package_path(), 'rla_config_model_learn.yaml'),
                      run_file='train_model_offline.py', log_root=get_package_path())
     tester.log_files_gen()
     tester.print_args()
