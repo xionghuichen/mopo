@@ -51,6 +51,9 @@ def restore_pool_d4rl(replay_pool, name, adapt=False, maxlen=5, policy_hook=None
             if data['terminals'][i-1]:
                 flag = False
         if not flag:
+            if data['terminals'][i - 1]:
+                data['next_observations'][i - 1] = data['observations'][i - 1]
+            # print('[ DEBUG ] obs: {}, next obs: {}, delta: {}'.format(data['observations'][i-1], data['next_observations'][i-1], data['next_observations'][i-1] - data['observations'][i-1]), )
             data['last_actions'][i][:] = 0
             data['first_step'][i][:] = 1
             data['end_step'][i-1][:] = 1
@@ -164,6 +167,8 @@ def reset_hidden_state(replay_pool, name, maxlen=5, policy_hook=None):
             data['last_actions'][i, :] = 0
             data['first_step'][i, :] = 1
             data['end_step'][i - 1, :] = 1
+            if data['terminals'][i - 1]:
+                data['next_observations'][i-1] = data['observations'][i-1]
             traj_len = i - last_start
             max_traj_len = max(max_traj_len, traj_len)
             last_start = i
