@@ -52,7 +52,7 @@ params = {
                ],
     'use_adapt': [True],
     'retrain_model': [True],
-    'seed': [1,2,3,4],
+    'seed': [11,21,31,41],
     'info': [
         'med_exp_walker2d_seed_1',
         'med_exp_walker2d_seed_2',

@@ -84,6 +84,14 @@ class FlexibleReplayPool(ReplayPool):
                 import pdb; pdb.set_trace()
         self._advance(num_samples)
 
+    def restore_samples(self, samples):
+        num_samples = samples[samples.keys()[0]].shape[0]
+        index = np.arange(
+            0, self._pointer + num_samples) % self._max_size
+        for key, values in samples.items():
+            assert key in self.field_names
+            self.fields[key][index] = values
+
     def random_indices(self, batch_size):
         if self._size == 0: return np.arange(0, 0)
         return np.random.randint(0, self._size, batch_size)

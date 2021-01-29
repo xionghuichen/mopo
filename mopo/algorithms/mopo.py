@@ -226,13 +226,16 @@ class MOPO(RLAlgorithm):
     def _reinit_pool(self):
         def get_hidden(state, action, last_action, length):
             return self.get_action_hidden(state, action, last_action, length)
-        self._env_pool = SimpleReplayTrajPool(
-            self._training_environment.observation_space, self._training_environment.action_space,
-            self.fix_rollout_length,
-            self.network_kwargs["lstm_hidden_unit"], 2e5
-        )
-        loader.restore_pool(self._env_pool, self._pool_load_path, self._pool_load_max_size, save_path=self._log_dir,
-                            adapt=self.adapt, maxlen=self.fix_rollout_length, policy_hook=get_hidden)
+        # self._env_pool = SimpleReplayTrajPool(
+        #     self._training_environment.observation_space, self._training_environment.action_space,
+        #     self.fix_rollout_length,
+        #     self.network_kwargs["lstm_hidden_unit"], 2e5
+        # )
+        # loader.restore_pool(self._env_pool, self._pool_load_path, self._pool_load_max_size, save_path=self._log_dir,
+        #                     adapt=self.adapt, maxlen=self.fix_rollout_length, policy_hook=get_hidden)
+        time_now = time.time()
+        loader.reset_hidden_state(self._env_pool, self._pool_load_path[5:], self.fix_rollout_length, policy_hook=get_hidden)
+        print('[ DEBUG ]: loading cost ', time.time() - time_now, 's')
 
     def _build(self):
 
