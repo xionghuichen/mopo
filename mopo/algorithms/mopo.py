@@ -476,8 +476,8 @@ class MOPO(RLAlgorithm):
             'log_alpha',
             dtype=tf.float32,
             initializer=0.0)
-        log_alpha_clip = tf.minimum(log_alpha, 0)
-        alpha = tf.exp(log_alpha_clip)
+        # log_alpha_clip = tf.minimum(log_alpha, 0)
+        alpha = tf.exp(log_alpha)
 
         self._alpha = alpha
         assert self._action_prior == 'uniform'
@@ -504,7 +504,7 @@ class MOPO(RLAlgorithm):
             reward=self._reward_scale * reward_ph[..., 0],
             discount=self._discount, next_value=(1 - done_ph[..., 0]) * next_value)
         # add q_target clip
-        tf.clip_by_value(q_target, self.min_rewards / (1 - self._discount), self.max_rewards / (1 - self._discount))
+        q_target = tf.clip_by_value(q_target, self.min_rewards / (1 - self._discount), self.max_rewards / (1 - self._discount))
 
 
         # assert q_target.shape.as_list() == [None, 1]
@@ -561,7 +561,7 @@ class MOPO(RLAlgorithm):
         # with tf.control_dependencies([train_value_op1, train_value_op2]):
         if isinstance(self._target_entropy, Number):
             alpha_loss = -tf.reduce_sum((
-                log_alpha_clip * tf.stop_gradient(logp_pi + self._target_entropy)) * self._valid_ph[:, :, 0]) / valid_num
+                log_alpha * tf.stop_gradient(logp_pi + self._target_entropy)) * self._valid_ph[:, :, 0]) / valid_num
             self._alpha_optimizer = tf.train.AdamOptimizer(self._policy_lr, name='alpha_optimizer')
             self._alpha_train_op = self._alpha_optimizer.minimize(
                 loss=alpha_loss, var_list=[log_alpha])
