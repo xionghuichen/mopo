@@ -58,10 +58,12 @@ def get_algorithm_from_variant(variant,  *args, **kwargs):
         algorithm_kwargs['num_elites'] = variant['elite_num']
     kwargs = {**kwargs, **algorithm_kwargs.toDict()}
     kwargs['adapt'] = adapt
+    kwargs['seed'] = variant['run_params']['seed']
     print("[ DEBUG ]: kwargs to net is {}".format(kwargs))
-    if retrain_model:
-        print('[ DEBUG ] retraining model... ')
-        print(kwargs)
-        kwargs['model_load_dir'] = None
+    # if retrain_model:
+    #     print('[ DEBUG ] retraining model... ')
+    #     print(kwargs)
+    #     kwargs['model_load_dir'] = None
+    kwargs['retrain'] = retrain_model
     algorithm = ALGORITHM_CLASSES[algorithm_type](variant, *args, **kwargs)
     return algorithm

@@ -82,6 +82,7 @@ class MOPO(RLAlgorithm):
             model_type='mlp',
             separate_mean_var=False,
             identity_terminal=0,
+            retrain=False,
 
             pool_load_path='',
             pool_load_max_size=0,
@@ -90,6 +91,7 @@ class MOPO(RLAlgorithm):
             penalty_coeff=0.,
             penalty_learned_var=False,
             tester=None,
+            seed=0,
             **kwargs):
         """
         Args:
@@ -122,6 +124,19 @@ class MOPO(RLAlgorithm):
             self._env_name = model_name[:-(7+final_len)] + '-v0'
         else:
             self._env_name = model_name[:-(3+final_len)] + '-v0'
+
+        model_name = self._env_name + ('_smv' if separate_mean_var else '') + '_{}_{}'.format(seed, num_networks)
+        self._model_load_dir = model_load_dir
+        if retrain:
+            model_load_dir = None
+            print('[ DEBUG ] about model: retrain model any way!!!')
+        elif os.path.exists(os.path.join(model_load_dir, model_name + '.mat')):
+            print('[ DEBUG ] about model: load model from the path: {}'.format(os.path.join(model_load_dir, model_name + '.mat')))
+        else:
+            print('[ DEBUG ] about model: {} does not exist!!!, retrain the model!!!'.format(os.path.join(model_load_dir, model_name + '.mat')))
+            model_load_dir = None
+            retrain = True
+
         print('[ DEBUG ] env name is {}'.format(self._env_name))
         if self._env_name in infos.REF_MIN_SCORE:
             self.min_ret = infos.REF_MIN_SCORE[self._env_name]
@@ -144,7 +159,7 @@ class MOPO(RLAlgorithm):
         self._rollout_schedule = [20, 100, rollout_length, rollout_length]
         self.fix_rollout_length = rollout_length
         self._max_model_t = max_model_t
-
+        self._retrain = retrain
         self._model_retain_epochs = model_retain_epochs
 
         self._model_train_freq = model_train_freq
@@ -504,7 +519,9 @@ class MOPO(RLAlgorithm):
             reward=self._reward_scale * reward_ph[..., 0],
             discount=self._discount, next_value=(1 - done_ph[..., 0]) * next_value)
         # add q_target clip
-        q_target = tf.clip_by_value(q_target, self.min_rewards / (1 - self._discount), self.max_rewards / (1 - self._discount))
+
+        q_target = tf.clip_by_value(q_target, self.min_rewards / (1 - self._discount),
+                                    self.max_rewards / (1 - self._discount))
 
 
         # assert q_target.shape.as_list() == [None, 1]
@@ -705,8 +722,9 @@ class MOPO(RLAlgorithm):
         # train dynamics model offline
         max_epochs = 1 if self._model.model_loaded else None
         model_train_metrics = self._train_model(batch_size=256, max_epochs=max_epochs, holdout_ratio=0.2, max_t=self._max_model_t)
-        if max_epochs is not None and max_epochs > 0:
-            self._model.save(self._log_dir, 0)
+        if self._retrain:
+
+            self._model.save(self._model_load_dir, '')
         model_metrics.update(model_train_metrics)
         self._log_model()
         gt.stamp('epoch_train_model')

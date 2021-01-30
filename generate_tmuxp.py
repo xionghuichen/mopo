@@ -72,6 +72,37 @@ params = {
     'elite_num': [None],
     'model_suffix': [None]
 }
+
+
+params = {
+    'config': [
+                "examples.config.d4rl.hopper_medium_expert",
+                "examples.config.d4rl.hopper_medium",
+                "examples.config.d4rl.hopper_random",
+                "examples.config.d4rl.hopper_mixed",
+                "examples.config.d4rl.hopper_medium_expert",
+                "examples.config.d4rl.hopper_medium",
+                "examples.config.d4rl.hopper_random",
+                "examples.config.d4rl.hopper_mixed",
+               ],
+    'use_adapt': [True],
+    'retrain_model': [True],
+    'seed': [11,21,31,41,51,61,71,81],
+    'info': [
+        'hopper_medium_expert_5_length',
+        'hopper_medium_5_length',
+        'hopper_random_5_length',
+        'hopper_mixed_5_length',
+        'hopper_medium_expert_0.25_penalty_5_length',
+        'hopper_medium_0.25_penalty_5_length',
+        'hopper_random_0.25_penalty_5_length',
+        'hopper_mixed_0.25_penalty_5_length',
+             ],
+    'length': [5],
+    'penalty_coeff': [None, None, None, None, 0.25, 0.25, 0.25, 0.25],
+    'elite_num': [None],
+    'model_suffix': [None]
+}
 #
 # params = {
 #     'config': [
