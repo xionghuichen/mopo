@@ -569,8 +569,12 @@ class BNN:
         model_dir = self.model_dir if savedir is None else savedir
 
         # Write structure to file
+        name_prefix = '{}_{}'.format(self.name, timestep)
+        if timestep == '':
+            name_prefix = '{}'.format(self.name)
+        print('[ DEBUG ] saving model: {}'.format(os.path.join(model_dir, '{}.mat'.format(name_prefix))))
         if not self.separate_mean_var:
-            with open(os.path.join(model_dir, '{}_{}.nns'.format(self.name, timestep)), "w+") as f:
+            with open(os.path.join(model_dir, '{}.nns'.format(name_prefix)), "w+") as f:
                 for layer in self.layers[:-1]:
                     f.write("%s\n" % repr(layer))
                     last_layer_copy = self.layers[-1].copy()
@@ -578,10 +582,10 @@ class BNN:
                     last_layer_copy.set_output_dim(last_layer_copy.get_output_dim() // 2)
                     f.write("%s\n" % repr(last_layer_copy))
         else:
-            with open(os.path.join(model_dir, '{}_{}.nns'.format(self.name, timestep)), "w+") as f:
+            with open(os.path.join(model_dir, '{}.nns'.format(name_prefix)), "w+") as f:
                 for layer in self.layers:
                     f.write("%s\n" % repr(layer))
-            with open(os.path.join(model_dir, '{}_{}_var.nns'.format(self.name, timestep)), "w+") as f:
+            with open(os.path.join(model_dir, '{}_var.nns'.format(name_prefix)), "w+") as f:
                 for layer in self.var_layers:
                     f.write("%s\n" % repr(layer))
 
@@ -589,7 +593,7 @@ class BNN:
         var_vals = {}
         for i, var_val in enumerate(self.sess.run(self.nonoptvars + self.optvars)):
             var_vals[str(i)] = var_val
-        savemat(os.path.join(model_dir, '{}_{}.mat'.format(self.name, timestep)), var_vals)
+        savemat(os.path.join(model_dir, '{}.mat'.format(name_prefix)), var_vals)
 
     def _load_structure(self):
         """Uses the saved structure in self.model_dir with the name of this network to initialize
