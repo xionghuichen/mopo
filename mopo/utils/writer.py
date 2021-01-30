@@ -6,11 +6,10 @@ matplotlib.use('Agg')
 from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
-
 import tensorboardX as tbx
+from RLA.easy_log import logger
 
 class Writer():
-
     def __init__(self, log_dir):
         self.log_dir = log_dir
         self._writer = tbx.SummaryWriter(self.log_dir)
@@ -36,6 +35,7 @@ class Writer():
         if epoch > self._data[label]:
             self._data[label] = epoch
             self._writer.add_scalar(label, val, epoch)
+            logger.record_tabular(label, val)
 
     def plot_cdfs(self, label, epoch, env_mean, model_mean, env_paths, model_paths):
         plt.clf()

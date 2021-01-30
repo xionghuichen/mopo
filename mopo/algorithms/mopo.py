@@ -25,6 +25,7 @@ from mopo.utils.logging import Progress
 import mopo.utils.filesystem as filesystem
 import mopo.off_policy.loader as loader
 from RLA.easy_log.tester import tester
+from RLA.easy_log import logger
 from d4rl import infos
 
 def td_target(reward, discount, next_value):
@@ -170,14 +171,7 @@ class MOPO(RLAlgorithm):
         observation_shape = self._training_environment.active_observation_shape
         action_shape = self._training_environment.action_space.shape
         self._pool = pool
-        total_samples = self._pool.return_all_samples()
-        self.min_rewards = np.min(total_samples['rewards']) - 4 * penalty_coeff
-        self.max_rewards = np.max(total_samples['rewards'])
-        print('[ DEBUG ] min rewards: {}, max rewards: {}, min rewards of penalty {}, clip(value, {}, {})'.format(self.min_rewards,
-                                                                                             self.max_rewards,
-                                                                                             4,
-                                                                                          self.min_rewards / (1 - discount),
-                                                                                          self.max_rewards / (1 - discount)))
+
         print('[ DEBUG ] pool.size=', pool.size)
 
         if self.adapt:
@@ -215,7 +209,7 @@ class MOPO(RLAlgorithm):
         assert len(action_shape) == 1, action_shape
         self._action_shape = action_shape
 
-        self._build()
+
         def get_hidden(state, action, last_action, length):
             return self.get_action_hidden(state, action, last_action, length)
         #### load replay pool data
@@ -224,6 +218,15 @@ class MOPO(RLAlgorithm):
 
         loader.restore_pool(self._pool, self._pool_load_path, self._pool_load_max_size, save_path=self._log_dir, adapt=False, maxlen=self.fix_rollout_length, policy_hook=get_hidden if self.adapt else None)
 
+        total_samples = self._pool.return_all_samples()
+        self.min_rewards = np.min(total_samples['rewards']) - 4 * penalty_coeff
+        self.max_rewards = np.max(total_samples['rewards'])
+        print('[ DEBUG ] min rewards: {}, max rewards: {}, min rewards of penalty {}, clip(value, {}, {})'.format(self.min_rewards,
+                                                                                             self.max_rewards,
+                                                                                             4,
+                                                                                          self.min_rewards / (1 - discount),
+                                                                                          self.max_rewards / (1 - discount)))
+        self._build()
         if self.adapt:
             loader.restore_pool(self._env_pool, self._pool_load_path, self._pool_load_max_size, save_path=self._log_dir, adapt=self.adapt, maxlen=self.fix_rollout_length, policy_hook=get_hidden)
 
@@ -231,6 +234,7 @@ class MOPO(RLAlgorithm):
         self._init_pool_size = self._pool.size
         print('[ MOPO ] Starting with pool size: {}'.format(self._init_pool_size))
         ####
+
 
     def _reinit_pool(self):
         def get_hidden(state, action, last_action, length):
@@ -472,7 +476,8 @@ class MOPO(RLAlgorithm):
             'log_alpha',
             dtype=tf.float32,
             initializer=0.0)
-        alpha = tf.exp(log_alpha)
+        log_alpha_clip = tf.minimum(log_alpha, 0)
+        alpha = tf.exp(log_alpha_clip)
 
         self._alpha = alpha
         assert self._action_prior == 'uniform'
@@ -556,7 +561,7 @@ class MOPO(RLAlgorithm):
         # with tf.control_dependencies([train_value_op1, train_value_op2]):
         if isinstance(self._target_entropy, Number):
             alpha_loss = -tf.reduce_sum((
-                log_alpha * tf.stop_gradient(logp_pi + self._target_entropy)) * self._valid_ph[:, :, 0]) / valid_num
+                log_alpha_clip * tf.stop_gradient(logp_pi + self._target_entropy)) * self._valid_ph[:, :, 0]) / valid_num
             self._alpha_optimizer = tf.train.AdamOptimizer(self._policy_lr, name='alpha_optimizer')
             self._alpha_train_op = self._alpha_optimizer.minimize(
                 loss=alpha_loss, var_list=[log_alpha])
@@ -708,7 +713,7 @@ class MOPO(RLAlgorithm):
         ####
         tester.time_step_holder.set_time(0)
         for self._epoch in gt.timed_for(range(self._epoch, self._n_epochs)):
-
+            tester.time_step_holder.set_time(self._epoch)
             self._epoch_before_hook()
             gt.stamp('epoch_before_hook')
 
@@ -814,6 +819,7 @@ class MOPO(RLAlgorithm):
             for k, v in diagnostics.items():
                 # print('[ DEBUG ] epoch: {} diagnostics k: {}, v: {}'.format(self._epoch, k, v))
                 self._writer.add_scalar(k, v, self._epoch)
+            logger.dump_tabular()
             if self._epoch % 4 == 0 and self.adapt:
                 self._reinit_pool()
             yield diagnostics

@@ -195,7 +195,8 @@ def main():
     variant = copy.deepcopy(variant)
 
     tester.set_hyper_param(**variant)
-    tester.add_record_param(['config', 'use_adapt', 'info', 'run_params.seed'])
+    tester.add_record_param(['config', 'use_adapt', "model_suffix", "penalty_coeff", "length",
+                             'info', 'run_params.seed'])
     tester.configure(task_name='policy_learn', private_config_path=os.path.join(get_package_path(), 'rla_config_mopo.yaml'),
                      run_file='main.py', log_root=get_package_path())
     tester.log_files_gen()
