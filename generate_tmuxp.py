@@ -106,20 +106,22 @@ params = {
 
 params = {
     'config': [
-        "examples.config.d4rl.walker2d_random",
+        "examples.config.d4rl.hopper_mixed",
         # "examples.config.d4rl.hopper_mixed",
         # "examples.config.d4rl.hopper_medium_expert",
         # "examples.config.d4rl.hopper_random",
     ],
     "model_suffix": [20],
-    "info": ['hopper_medium_model_num_20_2560',
+    "info": ['hopper_mixed',
+'hopper_mixed',
              # 'walker2d_mixed_model_num_20_2560',
              # 'walker2d_medium_expert_model_num_20_2560',
              # 'halfcheetah'
              ],
     'penalty_coeff': [0.25],
-    'length': [50],
-    'use_adapt': [True]
+    'length': [100],
+    'use_adapt': [True],
+    'seed': [8]
 }
 
 #
@@ -142,6 +144,9 @@ exp_num = len(params['info'])
 template = docker_template + '\"export CUDA_VISIBLE_DEVICES={0} && cd {1} && pip install -e . ' \
            '&& python simple_run/main.py {2}\"'
 template2 = docker_template_port + '"sleep 25 && cd {0} && tensorboard --logdir=./log/policy_learn"'
+
+template3 = docker_template + '\"cd {0} && pip install -e . ' \
+           '&& python obs_mem_percent.py\"'
 
 for i in range(exp_num):
     device_ind = DEVICES[i % len(DEVICES)]
@@ -172,5 +177,12 @@ config["windows"].append({
         "panes": [template2.format(path)],
         "layout": "tiled"
     })
+config["windows"].append({
+        "window_name": "mem_percent",
+        "panes": [template3.format(path)],
+        "layout": "tiled"
+    })
+
 print(template2.format(path))
+print(template3.format(path))
 yaml.dump(config, open("run_all.yaml", "w"), default_flow_style=False)
