@@ -54,6 +54,10 @@ def format_samples_for_training(samples):
 	delta_obs = next_obs - obs
 	inputs = np.concatenate((obs, act), axis=-1)
 	outputs = np.concatenate((rew, delta_obs), axis=-1)
+	# for ind, item in enumerate(outputs):
+	# 	if np.max(np.abs(item)) > 8.0:
+	# 		print(ind, samples['terminals'][ind], obs[ind], next_obs[ind])
+
 	return inputs, outputs
 
 
