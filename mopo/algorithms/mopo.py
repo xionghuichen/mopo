@@ -254,8 +254,8 @@ class MOPO(RLAlgorithm):
         print('[ DEBUG ] pool.size (after restore from pool) =', pool.size)
         self._init_pool_size = self._pool.size
         print('[ MOPO ] Starting with pool size: {}'.format(self._init_pool_size))
-        for _ in range(100):
-            self._reinit_pool()
+        # for _ in range(100):
+        #     self._reinit_pool()
         ####
 
 
