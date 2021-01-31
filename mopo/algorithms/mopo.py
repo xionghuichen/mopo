@@ -162,8 +162,9 @@ class MOPO(RLAlgorithm):
         self._retrain = retrain
         self._model_retain_epochs = model_retain_epochs
 
-        self._model_train_freq = model_train_freq
-        self._rollout_batch_size = int(rollout_batch_size)
+        self._model_train_freq = int(model_train_freq / 2)
+        self._rollout_batch_size = int(rollout_batch_size / 2)
+        # self._rollout_batch_size = int(np.ceil(int(rollout_batch_size) * 5 / self.fix_rollout_length))
         self._deterministic = deterministic
         self._rollout_random = rollout_random
         self._real_ratio = real_ratio
@@ -191,7 +192,8 @@ class MOPO(RLAlgorithm):
 
         if self.adapt:
             self._env_pool = SimpleReplayTrajPool(
-                training_environment.observation_space, training_environment.action_space, self.fix_rollout_length, self.network_kwargs["lstm_hidden_unit"], 2e5
+                training_environment.observation_space, training_environment.action_space, self.fix_rollout_length,
+                self.network_kwargs["lstm_hidden_unit"], int(np.ceil(self._pool._max_size / self.fix_rollout_length)),
             )
 
         else:
@@ -731,7 +733,7 @@ class MOPO(RLAlgorithm):
         if self._retrain:
             self._model.save(self._model_load_dir, '')
         model_metrics.update(model_train_metrics)
-        self._log_model()
+        # self._log_model()
         gt.stamp('epoch_train_model')
         ####
         tester.time_step_holder.set_time(0)
