@@ -222,8 +222,7 @@ def main():
         variant['algorithm_params']['kwargs']['num_elites'] = int(int(variant['model_suffix']) / 7 * 5)
     print("[ DEBUG ] KWARGS: {}".format(variant['algorithm_params']['kwargs']))
 
-    algorithm = get_algorithm_from_variant(
-        variant=variant,
+    algorithm = get_algorithm_from_variant(variant=variant,
         training_environment=training_environment,
         evaluation_environment=evaluation_environment,
         policy=policy,

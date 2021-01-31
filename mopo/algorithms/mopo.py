@@ -723,7 +723,6 @@ class MOPO(RLAlgorithm):
         max_epochs = 1 if self._model.model_loaded else None
         model_train_metrics = self._train_model(batch_size=256, max_epochs=max_epochs, holdout_ratio=0.2, max_t=self._max_model_t)
         if self._retrain:
-
             self._model.save(self._model_load_dir, '')
         model_metrics.update(model_train_metrics)
         self._log_model()

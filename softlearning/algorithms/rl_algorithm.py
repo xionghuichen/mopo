@@ -22,7 +22,7 @@ class RLAlgorithm(tf.contrib.checkpoint.Checkpointable):
     def __init__(
             self,
             sampler,
-            n_epochs=1000,
+            n_epochs=2000,
             train_every_n_steps=1,
             n_train_repeat=1,
             max_train_repeat_per_timestep=5,
