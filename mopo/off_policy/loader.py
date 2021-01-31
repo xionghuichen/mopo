@@ -128,36 +128,55 @@ def restore_pool_d4rl(replay_pool, name, adapt=False, maxlen=5, policy_hook=None
                 start_ind += item
             last_start_ind = start_ind
     print('[ DEBUG ]: inferring hidden state done')
+    data_target = {k: replay_pool.fields[k] for k in replay_pool.fields}
+    traj_target_ind = 0
+    mini_target_ind = 0
+    for k in data_target:
+        data_target[k][traj_target_ind, :] = 0
     if adapt:
-
-        data_adapt = {k: [] for k in data}
-        it_traj = {k: [] for k in data}
-        current_len = 0
-        for start_ind in range(1):
-            traj_start_ind = 0
-            for i in range(data['observations'].shape[0]):
-                if i - traj_start_ind < start_ind:
-                    continue
+        for i in range(data['policy_hidden'].shape[0]):
+            for k in data:
+                if k in data_target:
+                    data_target[k][traj_target_ind, mini_target_ind, :] = data[k][i]
+            mini_target_ind += 1
+            if data['end_step'][i] or mini_target_ind == maxlen:
+                traj_target_ind += 1
+                traj_target_ind = traj_target_ind % replay_pool._max_size
+                mini_target_ind = 0
                 for k in data:
-                    it_traj[k].append(data[k][i])
-                current_len += 1
-                if data['end_step'][i]:
-                    traj_start_ind = i + 1
-                    for j in range(maxlen - current_len):
-                        for k in data:
-                            it_traj[k].append(np.zeros_like(data[k][i]))
-                        current_len += 1
-                if current_len >= maxlen:
-                    for k in data_adapt:
-                        data_adapt[k].append(np.expand_dims(np.vstack(it_traj[k]), 0))
-                    it_traj = {k: [] for k in data}
-                    current_len = 0
-        data_adapt = {k: np.vstack(v) for k, v in data_adapt.items()}
-        # data_adapt['last_actions'][:, 0] = 0
-        for k, v in data_adapt.items():
-            print('[ DEBUG ] key of env data: {}: value is {}'.format(k, v.shape))
-        # print('[ DEBUG ] ----------')
-        replay_pool.add_samples(data_adapt)
+                    if k in data_target:
+                        data_target[k][traj_target_ind, :] = 0
+        replay_pool._pointer += data['policy_hidden'].shape[0]
+        replay_pool._size = min(data['policy_hidden'].shape[0], replay_pool._max_size)
+        replay_pool._pointer %= replay_pool._max_size
+        # data_adapt = {k: [] for k in data}
+        # it_traj = {k: [] for k in data}
+        # current_len = 0
+        # for start_ind in range(1):
+        #     traj_start_ind = 0
+        #     for i in range(data['observations'].shape[0]):
+        #         if i - traj_start_ind < start_ind:
+        #             continue
+        #         for k in data:
+        #             it_traj[k].append(data[k][i])
+        #         current_len += 1
+        #         if data['end_step'][i]:
+        #             traj_start_ind = i + 1
+        #             for j in range(maxlen - current_len):
+        #                 for k in data:
+        #                     it_traj[k].append(np.zeros_like(data[k][i]))
+        #                 current_len += 1
+        #         if current_len >= maxlen:
+        #             for k in data_adapt:
+        #                 data_adapt[k].append(np.expand_dims(np.vstack(it_traj[k]), 0))
+        #             it_traj = {k: [] for k in data}
+        #             current_len = 0
+        # data_adapt = {k: np.vstack(v) for k, v in data_adapt.items()}
+        # # data_adapt['last_actions'][:, 0] = 0
+        # for k, v in data_adapt.items():
+        #     print('[ DEBUG ] key of env data: {}: value is {}'.format(k, v.shape))
+        # # print('[ DEBUG ] ----------')
+        # replay_pool.add_samples(data_adapt)
         return
     replay_pool.add_samples(data)
 
@@ -266,7 +285,7 @@ def reset_hidden_state(replay_pool, name, maxlen=5, policy_hook=None):
         mini_target_ind += 1
         if data['end_step'][i] or mini_target_ind == maxlen:
             traj_target_ind += 1
-            traj_target_ind = traj_target_ind % replay_pool.max_size
+            traj_target_ind = traj_target_ind % replay_pool._max_size
             mini_target_ind = 0
             for k in data_new:
                 data_target[k][traj_target_ind, :] = 0

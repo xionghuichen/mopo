@@ -193,7 +193,7 @@ class MOPO(RLAlgorithm):
         if self.adapt:
             self._env_pool = SimpleReplayTrajPool(
                 training_environment.observation_space, training_environment.action_space, self.fix_rollout_length,
-                self.network_kwargs["lstm_hidden_unit"], int(np.ceil(self._pool._max_size / self.fix_rollout_length)),
+                self.network_kwargs["lstm_hidden_unit"], int(np.ceil(self._pool._max_size / self.fix_rollout_length * 4.0)),
             )
 
         else:
@@ -904,11 +904,11 @@ class MOPO(RLAlgorithm):
 
         rollouts_per_epoch = self._rollout_batch_size * self._epoch_length / self._model_train_freq
         model_steps_per_epoch = int(self._rollout_length * rollouts_per_epoch)
-        new_pool_size = self._model_retain_epochs * model_steps_per_epoch
+        new_pool_size = self._model_retain_epochs * model_steps_per_epoch // self._epoch_length
 
         if not hasattr(self, '_model_pool'):
-            print('[ MOPO ] Initializing new model pool with size {:.2e}'.format(
-                new_pool_size
+            print('[ MOPO ] Initializing new model pool with size {:.2e}, model retrain epochs: {:.2e}, model steps per epoch: {:.2e}'.format(
+                new_pool_size, self._model_retain_epochs, model_steps_per_epoch
             ))
             if self.adapt:
                 self._model_pool = SimpleReplayTrajPool(obs_space, act_space, self.fix_rollout_length, self.network_kwargs["lstm_hidden_unit"], new_pool_size)
@@ -1012,7 +1012,13 @@ class MOPO(RLAlgorithm):
                 self._model_pool.add_samples(samples)
             else:
                 samples = {k: np.expand_dims(v, 1) for k, v in samples.items()}
-                sample_list.append(samples)
+                num_samples = samples['observations'].shape[0]
+                # start_ind = self._model_pool._pointer
+                index = np.arange(
+                    self._model_pool._pointer, self._model_pool._pointer + num_samples) % self._model_pool._max_size
+                for k in samples:
+                    self._model_pool.fields[k][index, i] = samples[k][:, 0]
+                # sample_list.append(samples)
             # print('[ DEBUG ]: obs: \n', samples['observations'], ', action: \n', samples['actions'], 'next_obs: \n',
             #       samples['next_observations'],
             #       ', term: \n', samples['terminals'], ', valid: \n', samples['valid'], ', last_action: \n',
@@ -1024,13 +1030,16 @@ class MOPO(RLAlgorithm):
             #         '[ Model Rollout ] Breaking early: {} | {} / {}'.format(i, nonterm_mask.sum(), nonterm_mask.shape))
             #     break
         if self.adapt:
-            samples = {}
-            for k in sample_list[0]:
-                data = np.concatenate([item[k] for item in sample_list], axis=1)
-                samples[k] = data
-                # print('[ DEBUG ]: shape of data: ', np.shape(data))
-                # print(k, data[0])
-            self._model_pool.add_samples(samples)
+            self._model_pool._pointer += num_samples
+            self._model_pool._pointer %= self._model_pool._max_size
+            self._model_pool._size = min(self._model_pool._max_size, self._model_pool._size + num_samples)
+        #     samples = {}
+        #     for k in sample_list[0]:
+        #         data = np.concatenate([item[k] for item in sample_list], axis=1)
+        #         samples[k] = data
+        #         # print('[ DEBUG ]: shape of data: ', np.shape(data))
+        #         # print(k, data[0])
+        #     self._model_pool.add_samples(samples)
         mean_rollout_length = sum(steps_added) / rollout_batch_size
         rollout_stats = {'mean_rollout_length': mean_rollout_length,
                          'mean_rollout_reward': np.mean(samples['rewards']),
