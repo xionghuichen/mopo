@@ -107,9 +107,9 @@ params = {
 params = {
     'config': [
         "examples.config.d4rl.hopper_medium",
-        "examples.config.d4rl.walker2d_mixed",
-        "examples.config.d4rl.walker2d_medium_expert",
-        "examples.config.d4rl.halfcheetah_mixed",
+        "examples.config.d4rl.hopper_mixed",
+        "examples.config.d4rl.hopper_medium_expert",
+        "examples.config.d4rl.hopper_random",
     ],
     "model_suffix": [20],
     "info": ['hopper_medium_model_num_20_2560',

@@ -28,9 +28,19 @@ def restore_pool_d4rl(replay_pool, name, adapt=False, maxlen=5, policy_hook=None
     import gym
     import d4rl
     env = gym.make(name)
+    is_hopper_medium = name == 'hopper-medium-v0'
+    is_hopper_med_expert = name == 'hopper-medium-expert-v0'
+    illed_idx_hopper_medium = [113488, 171088, 294360, 381282, 389466, 703200, 871770, 995870]
+    illed_idx_hopper_medium_exp = get_illed_med_exp()
     get_hidden = policy_hook if policy_hook else None
     mask_steps = env._max_episode_steps - 1
     data = d4rl.qlearning_dataset(gym.make(name))
+    if is_hopper_medium:
+        for k in data:
+            data[k] = np.delete(data[k], illed_idx_hopper_medium, axis=0)
+    if is_hopper_med_expert:
+        for k in data:
+            data[k] = np.delete(data[k], illed_idx_hopper_medium_exp, axis=0)
     data['rewards'] = np.expand_dims(data['rewards'], axis=1)
     data['terminals'] = np.expand_dims(data['terminals'], axis=1)
     data['last_actions'] = np.concatenate((np.zeros((1, data['actions'].shape[1])), data['actions'][:-1, :]), axis=0).copy()
@@ -44,15 +54,29 @@ def restore_pool_d4rl(replay_pool, name, adapt=False, maxlen=5, policy_hook=None
     traj_num = 1
     traj_lens = []
     print('[ DEBUG ] obs shape: ', data['observations'].shape)
+    ill_idxs = []
     for i in range(data['observations'].shape[0]):
         flag = True
         if i >= 1:
+            # if is_hopper_med_expert and np.max(np.abs(data['next_observations'][i] - data['observations'][i])) > 8.0 and \
+            #         np.all(np.abs(data['next_observations'][i][1:]) < 5.5e-3) and i - last_start > 200:
+            #     data['next_observations'][i] = data['observations'][i]
+            #     ill_idxs.append(i)
             flag = (data['observations'][i] == data['next_observations'][i-1]).all()
             if data['terminals'][i-1]:
                 flag = False
+
+        # if np.max(np.abs(data['next_observations'][i] - data['observations'][i])) > 8.0:
+        #     print('1: ', i - last_start, data['terminals'][i-1], data['terminals'][i], is_hopper_medium, name)
+        #     print(data['observations'][i - 1], data['next_observations'][i - 1], data['observations'][i],
+        #           data['next_observations'][i], )
         if not flag:
             if data['terminals'][i - 1]:
                 data['next_observations'][i - 1] = data['observations'][i - 1]
+            # if np.max(np.abs(data['next_observations'][i] - data['observations'][i])) > 8.0:
+            #     ill_idxs.append(i)
+            #     print('2: ', i, i - last_start, data['terminals'][i - 1], data['terminals'][i], (data['observations'][i] == data['next_observations'][i-1]).all())
+            #     print(data['observations'][i-1], data['next_observations'][i-1], data['observations'][i], data['next_observations'][i], )
             # print('[ DEBUG ] obs: {}, next obs: {}, delta: {}'.format(data['observations'][i-1], data['next_observations'][i-1], data['next_observations'][i-1] - data['observations'][i-1]), )
             data['last_actions'][i][:] = 0
             data['first_step'][i][:] = 1
@@ -64,6 +88,7 @@ def restore_pool_d4rl(replay_pool, name, adapt=False, maxlen=5, policy_hook=None
             traj_lens.append(traj_len)
             if traj_len > 999:
                 print('[ DEBUG + WARN ]: trajectory length is too large: current step is ', i, traj_num,)
+    print(ill_idxs)
     traj_lens.append(data['observations'].shape[0] - last_start)
     assert len(traj_lens) == traj_num
     print("[ DEBUG ]: adapt is ", adapt)
@@ -140,9 +165,19 @@ def reset_hidden_state(replay_pool, name, maxlen=5, policy_hook=None):
     import gym
     import d4rl
     env = gym.make(name)
+    is_hopper_medium = name == 'hopper-medium-v0'
+    is_hopper_med_expert = name == 'hopper-medium-expert-v0'
+    illed_idx_hopper_medium = [113488, 171088, 294360, 381282, 389466, 703200, 871770, 995870]
+    illed_idx_hopper_medium_exp = get_illed_med_exp()
     get_hidden = policy_hook if policy_hook else None
     mask_steps = env._max_episode_steps - 1
     data = d4rl.qlearning_dataset(gym.make(name))
+    if is_hopper_medium:
+        for k in data:
+            data[k] = np.delete(data[k], illed_idx_hopper_medium, axis=0)
+    if is_hopper_med_expert:
+        for k in data:
+            data[k] = np.delete(data[k], illed_idx_hopper_medium_exp, axis=0)
     data['rewards'] = np.expand_dims(data['rewards'], axis=1)
     data['terminals'] = np.expand_dims(data['terminals'], axis=1)
     data['last_actions'] = np.concatenate((np.zeros((1, data['actions'].shape[1])), data['actions'][:-1, :]),
@@ -159,6 +194,9 @@ def reset_hidden_state(replay_pool, name, maxlen=5, policy_hook=None):
     print('[ DEBUG ] reset_hidden_state, obs shape: ', data['observations'].shape)
     for i in range(data['observations'].shape[0]):
         flag = True
+        # if is_hopper_med_expert and np.max(np.abs(data['next_observations'][i] - data['observations'][i])) > 8.0 and \
+        #         np.all(np.abs(data['next_observations'][i][1:]) < 5.5e-3) and i - last_start > 200:
+        #     data['next_observations'][i] = data['observations'][i]
         if i >= 1:
             flag = (data['observations'][i] == data['next_observations'][i - 1]).all()
             if data['terminals'][i - 1]:
@@ -339,3 +377,32 @@ def restore_pool_contiguous(replay_pool, load_path):
         'rewards': rewards,
         'terminals': dones.astype(bool)
     })
+
+def get_illed_med_exp():
+    return [9290, 15278, 16276, 19270, 26256, 33242, 34240, 35238, 43869, 46863,
+            52851, 55845, 68547, 69545, 70543, 74535, 75533, 79525, 80523, 81521, 82519, 85513,
+            86511, 87509, 92499, 95493, 96491, 98487, 99485, 101481, 102479, 109465, 112808, 113806,
+            118783, 119781, 129761, 133753, 140739, 149721, 150719, 152715, 154711, 156707, 160345, 165335,
+            172618, 174152, 184525, 189831, 193823, 200809, 203803, 208793, 209791, 210789, 220654, 221652,
+            226642, 235609, 241597, 244591, 251577, 253573, 255569, 259561, 261557, 263553, 279411, 280409,
+            281407, 285399, 287395, 288393, 290389, 291387, 295379, 296377, 298373, 300369, 303363, 319023,
+            320021, 326009, 327007, 334715, 337709, 345082, 347078, 352440, 355434, 356432, 370963, 374955,
+            375953, 376951, 377949, 382939, 385933, 386931, 389925, 392919, 394915, 402899, 404895, 409885,
+            414875, 416871, 417869, 418867, 421861, 423857, 429845, 430843, 433837, 445108, 446106, 450098,
+            455999, 457995, 465903, 466901, 468897, 469895, 470893, 473887, 477879, 480873, 483867, 485863,
+            489855, 495229, 497965, 501271, 502269, 505263, 507259, 509255, 511251, 512249, 514245, 517239,
+            518237, 525223, 532209, 533207, 534205, 538197, 540193, 541191, 547179, 548177, 552169, 556161,
+            563147, 564145, 565143, 567139, 570133, 572129, 574125, 578117, 582590, 583588, 586582, 587580,
+            591572, 597159, 600154, 608138, 610134, 612130, 615848, 616846, 627824, 629820, 634810, 635808,
+            636806, 645612, 646610, 649604, 650602, 655421, 659413, 660411, 663055, 670334, 682873, 690857,
+            691855, 698841, 701830, 704824, 707818, 710812, 715529, 721517, 734036, 739026, 743018, 748008,
+            760402, 763396, 766390, 767388, 772378, 775691, 776689, 779683, 781679, 786410, 788406, 789404,
+            793396, 803376, 805372, 810362, 814354, 823336, 828326, 836310, 838306, 842298, 843296, 850289,
+            857275, 858273, 859271, 860269, 863096, 871822, 876812, 877810, 878808, 885359, 886357, 894726,
+            900608, 901606, 903602, 904600, 910588, 921906, 926896, 927894, 930888, 936876, 942219, 948207,
+            950203, 953197, 955193, 960183, 971309, 972307, 976631, 980623, 981621, 985613, 986611, 989605,
+            992599, 993597, 997589, 1090448, 1116281, 1117755, 1118649, 1118888, 1119536, 1119979, 1120853,
+            1122660, 1125857, 1127473, 1138991, 1140216, 1140855, 1142213,
+            1146000, 1147056, 1147470, 1151830, 1152150, 1154541, 1155304, 1155735, 1156261, 1157092, 1158497,
+            1161298, 1162988,
+            1163795, 1168075, 1168768, 1171017, 1172762, 1176232, 1178077, 1178961, 1192387]
