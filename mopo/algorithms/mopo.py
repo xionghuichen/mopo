@@ -236,11 +236,17 @@ class MOPO(RLAlgorithm):
         total_samples = self._pool.return_all_samples()
         self.min_rewards = np.min(total_samples['rewards']) - 4 * penalty_coeff
         self.max_rewards = np.max(total_samples['rewards'])
+        self.max_state = np.max(total_samples['observations'])
+        self.min_state = np.min(total_samples['next_observations'])
         print('[ DEBUG ] min rewards: {}, max rewards: {}, min rewards of penalty {}, clip(value, {}, {})'.format(self.min_rewards,
                                                                                              self.max_rewards,
                                                                                              4,
                                                                                           self.min_rewards / (1 - discount),
                                                                                           self.max_rewards / (1 - discount)))
+        print('[ DEBUG ] min state: {}, max state: {}'.format(self.min_state, self.max_state))
+        _inputs, _outputs = format_samples_for_training(total_samples)
+        print('[ DEBUG ] min/mean/max of input: {}/{}/{}, min/mean/max of output: {}/{}/{}'.format(np.min(_inputs), np.mean(_inputs), np.max(_inputs),
+                                                                                   np.min(_outputs), np.mean(_outputs), np.max(_outputs),))
         self._build()
         if self.adapt:
             loader.restore_pool(self._env_pool, self._pool_load_path, self._pool_load_max_size, save_path=self._log_dir, adapt=self.adapt, maxlen=self.fix_rollout_length, policy_hook=get_hidden)
@@ -721,7 +727,7 @@ class MOPO(RLAlgorithm):
         )
         # train dynamics model offline
         max_epochs = 1 if self._model.model_loaded else None
-        model_train_metrics = self._train_model(batch_size=256, max_epochs=max_epochs, holdout_ratio=0.2, max_t=self._max_model_t)
+        model_train_metrics = self._train_model(batch_size=2560, max_epochs=max_epochs, holdout_ratio=0.2, max_t=self._max_model_t)
         if self._retrain:
             self._model.save(self._model_load_dir, '')
         model_metrics.update(model_train_metrics)
@@ -975,6 +981,7 @@ class MOPO(RLAlgorithm):
             else:
                 # print("act: {}, obs: {}".format(act.shape, obs.shape))
                 next_obs, rew, term, info = self.fake_env.step(obs, act, **kwargs)
+                next_obs = np.clip(next_obs, self.min_state, self.max_state)
                 unpenalized_rewards = info['unpenalized_rewards']
                 penalty = info['penalty']
             # print('[ DEBUG ] size of unpenalized_rewards: {}, size of current_nonterm: {}, size of penalty: {}'.format(
@@ -1108,6 +1115,18 @@ class MOPO(RLAlgorithm):
         self._training_progress.set_description()
 
         feed_dict = self._get_feed_dict(iteration, batch)
+        sample_log = {}
+        for k, v in feed_dict.items():
+            sample_log['batch_max_' + k.name] = np.max(v)
+            sample_log['batch_min_' + k.name] = np.min(v)
+        # mask = feed_dict[self._valid_ph]
+        # mask_wo_terminal = (mask - mask * feed_dict[self._terminals_ph]) * mask
+        # print('state max: {}, next state max: {}'.format(np.max(feed_dict[self._observations_ph] * feed_dict[self._valid_ph]),
+        #       np.max(feed_dict[self._next_observations_ph]* feed_dict[self._valid_ph])), '\nstate min: {}, next state min: {}'.format(np.min(feed_dict[self._observations_ph]* feed_dict[self._valid_ph]),
+        #       np.min(feed_dict[self._next_observations_ph]* feed_dict[self._valid_ph])), '\nstate max: {}, next state max: {}'.format(np.max(feed_dict[self._observations_ph]* mask_wo_terminal),
+        #       np.max(feed_dict[self._next_observations_ph]* mask_wo_terminal)),  '\n\n')
+        # assert np.all(np.sum(feed_dict[self._valid_ph] * feed_dict[self._terminals_ph], axis=1) <= 1)
+        # max_state_ind = np.argmax()
 
         res = self._session.run(self._training_ops, feed_dict)
         # print('[ DEBUG ]: ' + '-' * 30)
@@ -1115,6 +1134,8 @@ class MOPO(RLAlgorithm):
             # Run target ops here.
             self._update_target()
         logs = {k: np.mean(res[1][k]) for k in res[1]}
+
+        logs.update(sample_log)
         # for k, v in logs.items():
         #     print("[ DEBUG ] k: {}, v: {}".format(k, v))
         #     self._writer.add_scalar(k, v, iteration)
@@ -1142,7 +1163,7 @@ class MOPO(RLAlgorithm):
             self._rewards_ph: resize(batch['rewards']),
             self._terminals_ph: resize(batch['terminals']),
             self._valid_ph: resize(batch['valid']),
-            self.seq_len: np.sum(batch['valid'], axis=1).squeeze(),
+            self.seq_len: np.sum(resize(batch['valid']), axis=1).squeeze(-1),
             self._prev_state_p_ph: policy_hidden,
             self._prev_state_v_ph: value_hidden,
             self._last_actions_ph: resize(batch['last_actions'])
