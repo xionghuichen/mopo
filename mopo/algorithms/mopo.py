@@ -254,6 +254,8 @@ class MOPO(RLAlgorithm):
         print('[ DEBUG ] pool.size (after restore from pool) =', pool.size)
         self._init_pool_size = self._pool.size
         print('[ MOPO ] Starting with pool size: {}'.format(self._init_pool_size))
+        for _ in range(100):
+            self._reinit_pool()
         ####
 
 
@@ -726,7 +728,8 @@ class MOPO(RLAlgorithm):
         )
         # train dynamics model offline
         max_epochs = 1 if self._model.model_loaded else None
-        model_train_metrics = self._train_model(batch_size=2560, max_epochs=max_epochs, holdout_ratio=0.2, max_t=self._max_model_t)
+        model_train_metrics = self._train_model(batch_size=256, max_epochs=max_epochs, holdout_ratio=0.2, max_t=self._max_model_t)
+        # model_train_metrics = {}
         if self._retrain:
 
             self._model.save(self._model_load_dir, '')
