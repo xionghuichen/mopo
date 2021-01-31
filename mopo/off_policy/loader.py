@@ -220,6 +220,7 @@ def reset_hidden_state(replay_pool, name, maxlen=5, policy_hook=None):
     data['value_hidden'] = None # np.zeros((data['last_actions'].shape[0], value_hidden.shape[-1]))
     last_start_ind = 0
     traj_num_to_infer = 400
+
     for i_ter in range(int(np.ceil(traj_num / traj_num_to_infer))):
         traj_lens_it = traj_lens[traj_num_to_infer * i_ter : min(traj_num_to_infer * (i_ter + 1), traj_num)]
         states = np.zeros((len(traj_lens_it), max_traj_len, data['observations'].shape[-1]))
@@ -254,30 +255,45 @@ def reset_hidden_state(replay_pool, name, maxlen=5, policy_hook=None):
     data_adapt = {k: [] for k in data_new}
     it_traj = {k: [] for k in data_new}
     current_len = 0
-    for start_ind in range(1):
-        traj_start_ind = 0
-        for i in range(data_new['policy_hidden'].shape[0]):
-            if i - traj_start_ind < start_ind:
-                continue
+    data_target = {k: replay_pool.fields[k] for k in data_new}
+    traj_target_ind = 0
+    mini_target_ind = 0
+    for k in data_new:
+        data_target[k][traj_target_ind, :] = 0
+    for i in range(data_new['policy_hidden'].shape[0]):
+        for k in data_new:
+            data_target[k][traj_target_ind, mini_target_ind, :] = data_new[k][i]
+        mini_target_ind += 1
+        if data['end_step'][i] or mini_target_ind == maxlen:
+            traj_target_ind += 1
+            mini_target_ind = 0
             for k in data_new:
-                it_traj[k].append(data_new[k][i])
-            current_len += 1
-            if data['end_step'][i]:
-                traj_start_ind = i + 1
-                for j in range(maxlen - current_len):
-                    for k in data_new:
-                        it_traj[k].append(np.zeros_like(data_new[k][i]))
-                    current_len += 1
-            if current_len >= maxlen:
-                for k in data_adapt:
-                    data_adapt[k].append(np.expand_dims(np.array(it_traj[k]), 0))
-                it_traj = {k: [] for k in data_new}
-                current_len = 0
-    data_adapt = {k: np.vstack(v) for k, v in data_adapt.items()}
-    # data_adapt['last_actions'][:, 0] = 0
-    for k, v in data_adapt.items():
-        print('[ DEBUG ] reset_hidden_state:  key of env data: {}: value is {}'.format(k, v.shape))
-    replay_pool.restore_samples(data_adapt)
+                data_target[k][traj_target_ind, :] = 0
+
+    # for start_ind in range(1):
+    #     traj_start_ind = 0
+    #     for i in range(data_new['policy_hidden'].shape[0]):
+    #         if i - traj_start_ind < start_ind:
+    #             continue
+    #         for k in data_new:
+    #             it_traj[k].append(data_new[k][i])
+    #         current_len += 1
+    #         if data['end_step'][i]:
+    #             traj_start_ind = i + 1
+    #             for j in range(maxlen - current_len):
+    #                 for k in data_new:
+    #                     it_traj[k].append(np.zeros_like(data_new[k][i]))
+    #                 current_len += 1
+    #         if current_len >= maxlen:
+    #             for k in data_adapt:
+    #                 data_adapt[k].append(np.expand_dims(np.array(it_traj[k]), 0))
+    #             it_traj = {k: [] for k in data_new}
+    #             current_len = 0
+    # data_adapt = {k: np.vstack(v) for k, v in data_adapt.items()}
+    # # data_adapt['last_actions'][:, 0] = 0
+    # for k, v in data_adapt.items():
+    #     print('[ DEBUG ] reset_hidden_state:  key of env data: {}: value is {}'.format(k, v.shape))
+    # replay_pool.restore_samples(data_adapt)
     # print('[ DEBUG ] ----------')
     # replay_pool.add_samples(data_adapt)
 
