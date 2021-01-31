@@ -266,7 +266,7 @@ def reset_hidden_state(replay_pool, name, maxlen=5, policy_hook=None):
         mini_target_ind += 1
         if data['end_step'][i] or mini_target_ind == maxlen:
             traj_target_ind += 1
-            traj_target_ind = traj_target_ind % replay_pool.max_size
+            traj_target_ind = traj_target_ind % replay_pool._max_size
             mini_target_ind = 0
             for k in data_new:
                 data_target[k][traj_target_ind, :] = 0
