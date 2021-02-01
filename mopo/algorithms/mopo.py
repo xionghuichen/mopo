@@ -83,7 +83,7 @@ class MOPO(RLAlgorithm):
             separate_mean_var=False,
             identity_terminal=0,
             retrain=False,
-            kl_coeff=0.1,
+            kl_coeff=1.0,
             pool_load_path='',
             pool_load_max_size=0,
             model_name=None,
@@ -402,6 +402,7 @@ class MOPO(RLAlgorithm):
             with tf.variable_scope('pi'):
                 mu, pi, logp_pi, std = policy(x, a, hidden_sizes, activation, output_activation)
                 origin_mu = mu
+                origin_pi = pi
                 mu, pi, logp_pi = apply_squashing_func(mu, pi, logp_pi)
 
             # vfs
@@ -412,7 +413,7 @@ class MOPO(RLAlgorithm):
             with tf.variable_scope('q2'):
                 q2 = vf_mlp(tf.concat([x_v, a], axis=-1))
             if need_origin_mu:
-                return mu, pi, logp_pi, q1, q2, std, origin_mu
+                return mu, pi, logp_pi, q1, q2, std, origin_mu, origin_pi
             return mu, pi, logp_pi, q1, q2, std
 
         def lstm_emb(x_ph, a_ph, pre_state_p, pre_state_v, seq_len=self.seq_len):
@@ -483,13 +484,13 @@ class MOPO(RLAlgorithm):
         }
 
         with tf.variable_scope('main', reuse=False):
-            self.mu, self.pi, logp_pi, q1, q2, std, mu_origin = mlp_actor_critic(policy_state1, value_state1, action_ph,
+            self.mu, self.pi, logp_pi, q1, q2, std, mu_origin, pi_origin = mlp_actor_critic(policy_state1, value_state1, action_ph,
                                                                                  need_origin_mu=True, **ac_kwargs)
         with tf.variable_scope('copy', reuse=False):
-            _, _, _, _, _, std_copy, mu_copy = mlp_actor_critic(policy_state1, value_state1, action_ph, need_origin_mu=True,
+            _, _, _, _, _, std_copy, mu_copy, _ = mlp_actor_critic(policy_state1, value_state1, action_ph, need_origin_mu=True,
                                                                       **ac_kwargs)
-            logp_old_pi = gaussian_likelihood(self.pi, tf.stop_gradient(mu_copy), tf.stop_gradient(tf.log(std_copy))) #tf.reduce_sum( * self._valid_ph) / valid_num
-            logp_old_pi -= tf.reduce_sum(2 * (np.log(2) - self.pi - tf.nn.softplus(-2 * self.pi)), axis=-1)
+            logp_old_pi = gaussian_likelihood(pi_origin, tf.stop_gradient(mu_copy), tf.stop_gradient(tf.log(std_copy))) #tf.reduce_sum( * self._valid_ph) / valid_num
+            logp_old_pi -= tf.reduce_sum(2 * (np.log(2) - pi_origin - tf.nn.softplus(-2 * self.pi)), axis=-1)
             logp_old_pi = tf.reduce_sum(logp_old_pi * self._valid_ph[..., 0]) / valid_num
 
 
