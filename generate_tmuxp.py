@@ -5,7 +5,7 @@ import os
 
 def get_base_path():
     return os.path.dirname(os.path.abspath(__file__))
-config = {"session_name": "run-all-1126", "windows": []}
+config = {"session_name": "run-all-1299", "windows": []}
 base_path = get_base_path()
 docker_path = "/root/mopo"
 path = docker_path
@@ -112,18 +112,39 @@ params = {
         "examples.config.d4rl.hopper_random",
     ],
     "model_suffix": [20],
-    "info": ['hopper_mixed_0201_5',
-            'hopper_medium_expert_0201_5',
-             'hopper_medium_0201_5',
-             'hopper_random_0201_5',
+    "info": ['hopper_mixed_0202_5_0.25',
+            'hopper_medium_expert_0202_5_0.25',
+             'hopper_medium_0202_5_0.25',
+             'hopper_random_0202_5_0.25',
              # 'halfcheetah'
              ],
-    'penalty_coeff': [0.05],
+    'penalty_coeff': [0.25],
     'length': [5],
     'use_adapt': [True],
     'seed': [8, 88, 888, 888],
     # 'retrain': [True]
 }
+#
+# params = {
+#     'config': [
+#         # "examples.config.d4rl.hopper_mixed",
+#         # "examples.config.d4rl.hopper_medium_expert",
+#         "examples.config.d4rl.walker2d_medium",
+#         # "examples.config.d4rl.hopper_random",
+#     ],
+#     "model_suffix": [20],
+#     "info": ['walker_debug_no_clip_large_pool_normal_pool_123',
+#             # 'hopper_medium_expert',
+#             #  'hopper_medium',
+#             #  'hopper_random',
+#              # 'halfcheetah'
+#              ],
+#     'penalty_coeff': [0.25],
+#     'length': [5],
+#     'use_adapt': [True],
+#     'seed': [888],
+#     # 'retrain': [True]
+# }
 
 #
 # params = {

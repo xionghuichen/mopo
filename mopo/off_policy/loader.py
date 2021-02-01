@@ -131,10 +131,15 @@ def restore_pool_d4rl(replay_pool, name, adapt=False, maxlen=5, policy_hook=None
     data_target = {k: replay_pool.fields[k] for k in replay_pool.fields}
     traj_target_ind = 0
     mini_target_ind = 0
+    mini_traj_cum_num = 0
     for k in data_target:
         data_target[k][traj_target_ind, :] = 0
     if adapt:
         for i in range(data['policy_hidden'].shape[0]):
+            if traj_target_ind == 0:
+                for k in data:
+                    if k in data_target:
+                        data_target[k][traj_target_ind, :] = 0
             for k in data:
                 if k in data_target:
                     data_target[k][traj_target_ind, mini_target_ind, :] = data[k][i]
@@ -142,13 +147,12 @@ def restore_pool_d4rl(replay_pool, name, adapt=False, maxlen=5, policy_hook=None
             if data['end_step'][i] or mini_target_ind == maxlen:
                 traj_target_ind += 1
                 traj_target_ind = traj_target_ind % replay_pool._max_size
+                mini_traj_cum_num += 1
                 mini_target_ind = 0
-                for k in data:
-                    if k in data_target:
-                        data_target[k][traj_target_ind, :] = 0
-        replay_pool._pointer += data['policy_hidden'].shape[0]
-        replay_pool._size = min(data['policy_hidden'].shape[0], replay_pool._max_size)
+        replay_pool._pointer += mini_traj_cum_num
+        replay_pool._size = int(min(mini_traj_cum_num + replay_pool._size, replay_pool._max_size))
         replay_pool._pointer %= replay_pool._max_size
+        print('[ DEBUG ] data num: {}, max size: {}'.format(mini_traj_cum_num, replay_pool._max_size))
         # data_adapt = {k: [] for k in data}
         # it_traj = {k: [] for k in data}
         # current_len = 0
