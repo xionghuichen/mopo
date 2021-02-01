@@ -107,21 +107,22 @@ params = {
 params = {
     'config': [
         "examples.config.d4rl.hopper_mixed",
-        # "examples.config.d4rl.hopper_mixed",
-        # "examples.config.d4rl.hopper_medium_expert",
-        # "examples.config.d4rl.hopper_random",
+        "examples.config.d4rl.hopper_medium_expert",
+        "examples.config.d4rl.hopper_medium",
+        "examples.config.d4rl.hopper_random",
     ],
-    "model_suffix": [20],
+    "model_suffix": [50],
     "info": ['hopper_mixed',
-'hopper_mixed',
-             # 'walker2d_mixed_model_num_20_2560',
-             # 'walker2d_medium_expert_model_num_20_2560',
+            'hopper_medium_expert',
+             'hopper_medium',
+             'hopper_random',
              # 'halfcheetah'
              ],
-    'penalty_coeff': [0.25],
-    'length': [100],
+    'penalty_coeff': [0.05],
+    'length': [10],
     'use_adapt': [True],
-    'seed': [8]
+    'seed': [8, 88, 888, 888],
+    'retrain': [True]
 }
 
 #

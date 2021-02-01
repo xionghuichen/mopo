@@ -116,7 +116,9 @@ class MOPO(RLAlgorithm):
         """
 
         super(MOPO, self).__init__(**kwargs)
-        print("\n\n[ DEBUG ]: model name: {}, penalty coeff: {}, elite num: {}, model_num: {}, rollout_length: {}\n\n".format(model_name, penalty_coeff, num_elites, num_networks, rollout_length))
+        # self.sampler._batch_size = 2560
+        print("\n\n[ DEBUG ]: model name: {}, penalty coeff: {}, elite num: {}, model_num: {}, rollout_length: {}, policy batch_size: {}\n\n".format(model_name, penalty_coeff, num_elites,
+                                                                                                                                                     num_networks, rollout_length, self.sampler._batch_size))
 
         self.tester = tester
         final_len = len(model_name.split('_')[-1])
