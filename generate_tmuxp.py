@@ -112,17 +112,17 @@ params = {
         "examples.config.d4rl.hopper_random",
     ],
     "model_suffix": [50],
-    "info": ['hopper_mixed',
-            'hopper_medium_expert',
-             'hopper_medium',
-             'hopper_random',
+    "info": ['hopper_mixed_0201_1',
+            'hopper_medium_expert_0201_1',
+             'hopper_medium_0201_1',
+             'hopper_random_0201_1',
              # 'halfcheetah'
              ],
     'penalty_coeff': [0.05],
     'length': [10],
     'use_adapt': [True],
     'seed': [8, 88, 888, 888],
-    'retrain': [True]
+    # 'retrain': [True]
 }
 
 #

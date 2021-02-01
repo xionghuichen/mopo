@@ -397,10 +397,11 @@ class MOPO(RLAlgorithm):
 
 
         def mlp_actor_critic(x, x_v, a, hidden_sizes=(256, 256), activation=tf.nn.relu,
-                             output_activation=None, policy=mlp_gaussian_policy):
+                             output_activation=None, policy=mlp_gaussian_policy, need_origin_mu=False):
             # policy
             with tf.variable_scope('pi'):
                 mu, pi, logp_pi, std = policy(x, a, hidden_sizes, activation, output_activation)
+                origin_mu = mu
                 mu, pi, logp_pi = apply_squashing_func(mu, pi, logp_pi)
 
             # vfs
@@ -410,6 +411,8 @@ class MOPO(RLAlgorithm):
                 q1 = vf_mlp(tf.concat([x_v, a], axis=-1))
             with tf.variable_scope('q2'):
                 q2 = vf_mlp(tf.concat([x_v, a], axis=-1))
+            if need_origin_mu:
+                return mu, pi, logp_pi, q1, q2, std, origin_mu
             return mu, pi, logp_pi, q1, q2, std
 
         def lstm_emb(x_ph, a_ph, pre_state_p, pre_state_v, seq_len=self.seq_len):
@@ -480,7 +483,14 @@ class MOPO(RLAlgorithm):
         }
 
         with tf.variable_scope('main', reuse=False):
-            self.mu, self.pi, logp_pi, q1, q2, std = mlp_actor_critic(policy_state1, value_state1, action_ph, **ac_kwargs)
+            self.mu, self.pi, logp_pi, q1, q2, std, mu_origin = mlp_actor_critic(policy_state1, value_state1, action_ph,
+                                                                                 need_origin_mu=True, **ac_kwargs)
+        with tf.variable_scope('copy', reuse=False):
+            _, _, _, _, _, std_copy, mu_copy = mlp_actor_critic(policy_state1, value_state1, action_ph, need_origin_mu=True,
+                                                                      **ac_kwargs)
+            logp_old_pi = gaussian_likelihood(self.pi, mu_copy, tf.log(std_copy)) #tf.reduce_sum( * self._valid_ph) / valid_num
+            logp_old_pi -= tf.reduce_sum(2 * (np.log(2) - self.pi - tf.nn.softplus(-2 * self.pi)), axis=-1)
+            logp_old_pi = tf.reduce_sum(logp_old_pi * self._valid_ph[..., 0]) / valid_num
 
 
         pi_entropy = tf.reduce_sum(tf.log(std + 1e-8) + 0.5 * tf.log(2 * np.pi * np.e), axis=-1)
@@ -520,7 +530,7 @@ class MOPO(RLAlgorithm):
             raise NotImplementedError
 
 
-        policy_loss = tf.reduce_sum(policy_kl_losses * self._valid_ph[:, :, 0]) / valid_num
+        policy_loss = tf.reduce_sum(policy_kl_losses * self._valid_ph[:, :, 0]) / valid_num - logp_old_pi
 
         # Q
         next_log_pis = logp_pi_next
@@ -603,7 +613,8 @@ class MOPO(RLAlgorithm):
 
         self.target_init = tf.group([tf.assign(v_targ, v_main)
                                      for v_main, v_targ in zip(get_vars('main'), get_vars('target'))])
-
+        self._apply_to_old_net = tf.group([tf.assign(v_targ, v_main)
+                                     for v_main, v_targ in zip(get_vars('main'), get_vars('copy'))])
         # construct opt
         self._training_ops = [
             tf.group((train_value_op2, train_value_op1, train_pi_op, self._alpha_train_op)),
@@ -619,12 +630,14 @@ class MOPO(RLAlgorithm):
                                 "sac_pi/std": logp_pi,
                                 "sac_pi/valid_num": valid_num,
                                 "sac_pi/policy_loss": policy_loss,
-                                "sac_pi/alpha_loss": alpha_loss
+                                "sac_pi/alpha_loss": alpha_loss,
+                                "sac_pi/logp_old_pi": logp_old_pi
                               }]
         # self._training_ops = [q1_loss, q2_loss, policy_loss, alpha_loss] #, logp_pi]
 
         self._session.run(tf.global_variables_initializer())
         self._session.run(self.target_init)
+        self._session.run(self._apply_to_old_net)
 
 
     def get_action_hidden(self, state, action, last_action, length):
@@ -693,6 +706,10 @@ class MOPO(RLAlgorithm):
     def mask_hidden(self, hidden, mask):
         res = (hidden[0][mask], hidden[1][mask])
         return res
+
+    def assign_copy(self):
+        with self._session.as_default():
+            self._session.run(self._apply_to_old_net)
 
     def _train(self):
 
@@ -852,6 +869,7 @@ class MOPO(RLAlgorithm):
             logger.dump_tabular()
             if self._epoch % 4 == 0 and self.adapt:
                 self._reinit_pool()
+            self.assign_copy()
             yield diagnostics
 
         self.sampler.terminate()
