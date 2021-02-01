@@ -193,7 +193,6 @@ class MOPO(RLAlgorithm):
         print('[ DEBUG ] pool.size=', pool.size)
 
 
-        print('[ DEBUG ] max size of the env pool: ', self._env_pool._max_size, ', size of env pool: ', self._env_pool._size)
         self._plotter = plotter
         self._tf_summaries = tf_summaries
 
@@ -238,11 +237,14 @@ class MOPO(RLAlgorithm):
         if self.adapt:
             self._env_pool = SimpleReplayTrajPool(
                 training_environment.observation_space, training_environment.action_space, self.fix_rollout_length,
-                self.network_kwargs["lstm_hidden_unit"], total_samples['rewards'].shape[0] // self._rollout_length * 3, # int(np.ceil(self._pool._max_size / self.fix_rollout_length * 4.0)),
+                self.network_kwargs["lstm_hidden_unit"], total_samples['rewards'].shape[0] // self.fix_rollout_length * 3, # int(np.ceil(self._pool._max_size / self.fix_rollout_length * 4.0)),
             )
 
         else:
             self._env_pool = self._pool
+        print('[ DEBUG ] max size of the env pool: ', self._env_pool._max_size, ', size of env pool: ',
+                  self._env_pool._size)
+
         print('[ DEBUG ] min rewards: {}, max rewards: {}, min rewards of penalty {}, clip(value, {}, {})'.format(self.min_rewards,
                                                                                              self.max_rewards,
                                                                                              4,
