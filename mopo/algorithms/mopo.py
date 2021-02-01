@@ -164,8 +164,8 @@ class MOPO(RLAlgorithm):
         self._retrain = retrain
         self._model_retain_epochs = model_retain_epochs
 
-        self._model_train_freq = int(model_train_freq / 2)
-        self._rollout_batch_size = int(rollout_batch_size / 2)
+        self._model_train_freq = int(model_train_freq)
+        self._rollout_batch_size = int(rollout_batch_size)
         # self._rollout_batch_size = int(np.ceil(int(rollout_batch_size) * 5 / self.fix_rollout_length))
         self._deterministic = deterministic
         self._rollout_random = rollout_random
@@ -192,15 +192,8 @@ class MOPO(RLAlgorithm):
 
         print('[ DEBUG ] pool.size=', pool.size)
 
-        if self.adapt:
-            self._env_pool = SimpleReplayTrajPool(
-                training_environment.observation_space, training_environment.action_space, self.fix_rollout_length,
-                self.network_kwargs["lstm_hidden_unit"], int(np.ceil(self._pool._max_size / self.fix_rollout_length * 4.0)),
-            )
 
-        else:
-            self._env_pool = self._pool
-        print('[ DEBUG ] max size of the env pool: ', self._env_pool._max_size)
+        print('[ DEBUG ] max size of the env pool: ', self._env_pool._max_size, ', size of env pool: ', self._env_pool._size)
         self._plotter = plotter
         self._tf_summaries = tf_summaries
 
@@ -242,6 +235,14 @@ class MOPO(RLAlgorithm):
         self.max_rewards = np.max(total_samples['rewards'])
         self.max_state = np.max(total_samples['observations'])
         self.min_state = np.min(total_samples['next_observations'])
+        if self.adapt:
+            self._env_pool = SimpleReplayTrajPool(
+                training_environment.observation_space, training_environment.action_space, self.fix_rollout_length,
+                self.network_kwargs["lstm_hidden_unit"], total_samples['rewards'].shape[0] // self._rollout_length * 3, # int(np.ceil(self._pool._max_size / self.fix_rollout_length * 4.0)),
+            )
+
+        else:
+            self._env_pool = self._pool
         print('[ DEBUG ] min rewards: {}, max rewards: {}, min rewards of penalty {}, clip(value, {}, {})'.format(self.min_rewards,
                                                                                              self.max_rewards,
                                                                                              4,
@@ -257,7 +258,8 @@ class MOPO(RLAlgorithm):
 
         print('[ DEBUG ] pool.size (after restore from pool) =', pool.size)
         self._init_pool_size = self._pool.size
-        print('[ MOPO ] Starting with pool size: {}'.format(self._init_pool_size))
+        print('[ MOPO ] Starting with pool size: {}, env_pool size: {}'.format(self._init_pool_size, self._env_pool.size))
+        print('[ DEBUG ] pool ptr: {}, pool max size: {}, pool size: {}'.format(self._env_pool._pointer, self._env_pool._max_size, self._env_pool.size))
         # for _ in range(100):
         #     self._reinit_pool()
         ####
@@ -906,7 +908,9 @@ class MOPO(RLAlgorithm):
 
         rollouts_per_epoch = self._rollout_batch_size * self._epoch_length / self._model_train_freq
         model_steps_per_epoch = int(self._rollout_length * rollouts_per_epoch)
-        new_pool_size = self._model_retain_epochs * model_steps_per_epoch // self._epoch_length
+        new_pool_size = self._model_retain_epochs * model_steps_per_epoch
+        if self.adapt:
+            new_pool_size = new_pool_size // self.fix_rollout_length
 
         if not hasattr(self, '_model_pool'):
             print('[ MOPO ] Initializing new model pool with size {:.2e}, model retrain epochs: {:.2e}, model steps per epoch: {:.2e}'.format(
