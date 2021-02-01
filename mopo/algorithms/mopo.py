@@ -116,7 +116,9 @@ class MOPO(RLAlgorithm):
         """
 
         super(MOPO, self).__init__(**kwargs)
-        print("\n\n[ DEBUG ]: model name: {}, penalty coeff: {}, elite num: {}, model_num: {}, rollout_length: {}\n\n".format(model_name, penalty_coeff, num_elites, num_networks, rollout_length))
+        # self.sampler._batch_size = 2560
+        print("\n\n[ DEBUG ]: model name: {}, penalty coeff: {}, elite num: {}, model_num: {}, rollout_length: {}, policy batch_size: {}\n\n".format(model_name, penalty_coeff, num_elites,
+                                                                                                                                                     num_networks, rollout_length, self.sampler._batch_size))
 
         self.tester = tester
         final_len = len(model_name.split('_')[-1])
@@ -190,15 +192,7 @@ class MOPO(RLAlgorithm):
 
         print('[ DEBUG ] pool.size=', pool.size)
 
-        if self.adapt:
-            self._env_pool = SimpleReplayTrajPool(
-                training_environment.observation_space, training_environment.action_space, self.fix_rollout_length,
-                self.network_kwargs["lstm_hidden_unit"], int(np.ceil(self._pool._max_size / self.fix_rollout_length * 4.0)),
-            )
 
-        else:
-            self._env_pool = self._pool
-        print('[ DEBUG ] max size of the env pool: ', self._env_pool._max_size)
         self._plotter = plotter
         self._tf_summaries = tf_summaries
 
@@ -240,6 +234,17 @@ class MOPO(RLAlgorithm):
         self.max_rewards = np.max(total_samples['rewards'])
         self.max_state = np.max(total_samples['observations'])
         self.min_state = np.min(total_samples['next_observations'])
+        if self.adapt:
+            self._env_pool = SimpleReplayTrajPool(
+                training_environment.observation_space, training_environment.action_space, self.fix_rollout_length,
+                self.network_kwargs["lstm_hidden_unit"], total_samples['rewards'].shape[0] // self.fix_rollout_length * 3, # int(np.ceil(self._pool._max_size / self.fix_rollout_length * 4.0)),
+            )
+
+        else:
+            self._env_pool = self._pool
+        print('[ DEBUG ] max size of the env pool: ', self._env_pool._max_size, ', size of env pool: ',
+                  self._env_pool._size)
+
         print('[ DEBUG ] min rewards: {}, max rewards: {}, min rewards of penalty {}, clip(value, {}, {})'.format(self.min_rewards,
                                                                                              self.max_rewards,
                                                                                              4,
@@ -256,7 +261,8 @@ class MOPO(RLAlgorithm):
 
         print('[ DEBUG ] pool.size (after restore from pool) =', pool.size)
         self._init_pool_size = self._pool.size
-        print('[ MOPO ] Starting with pool size: {}'.format(self._init_pool_size))
+        print('[ MOPO ] Starting with pool size: {}, env_pool size: {}'.format(self._init_pool_size, self._env_pool.size))
+        print('[ DEBUG ] pool ptr: {}, pool max size: {}, pool size: {}'.format(self._env_pool._pointer, self._env_pool._max_size, self._env_pool.size))
         # for _ in range(100):
         #     self._reinit_pool()
         ####
@@ -905,7 +911,9 @@ class MOPO(RLAlgorithm):
 
         rollouts_per_epoch = self._rollout_batch_size * self._epoch_length / self._model_train_freq
         model_steps_per_epoch = int(self._rollout_length * rollouts_per_epoch)
-        new_pool_size = self._model_retain_epochs * model_steps_per_epoch // self._epoch_length
+        new_pool_size = self._model_retain_epochs * model_steps_per_epoch
+        if self.adapt:
+            new_pool_size = new_pool_size // self.fix_rollout_length
 
         if not hasattr(self, '_model_pool'):
             print('[ MOPO ] Initializing new model pool with size {:.2e}, model retrain epochs: {:.2e}, model steps per epoch: {:.2e}'.format(
@@ -987,8 +995,8 @@ class MOPO(RLAlgorithm):
             else:
                 # print("act: {}, obs: {}".format(act.shape, obs.shape))
                 next_obs, rew, term, info = self.fake_env.step(obs, act, **kwargs)
-                if self.adapt:
-                    next_obs = np.clip(next_obs, self.min_state, self.max_state)
+                # if self.adapt:
+                #     next_obs = np.clip(next_obs, self.min_state, self.max_state)
                 unpenalized_rewards = info['unpenalized_rewards']
                 penalty = info['penalty']
             # print('[ DEBUG ] size of unpenalized_rewards: {}, size of current_nonterm: {}, size of penalty: {}'.format(

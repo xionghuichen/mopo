@@ -5,7 +5,7 @@ import os
 
 def get_base_path():
     return os.path.dirname(os.path.abspath(__file__))
-config = {"session_name": "run-all-1126", "windows": []}
+config = {"session_name": "run-all-1199", "windows": []}
 base_path = get_base_path()
 docker_path = "/root/mopo"
 path = docker_path
@@ -14,7 +14,7 @@ user_name = 'amax'
 
 docker_template = f'docker run --rm -it --shm-size 50gb -v {base_path}:{docker_path}  -v /home/{user_name}/.d4rl:/root/.d4rl sanluosizhou/selfdl:mopo -c '
 docker_template_port = f'docker run --rm -it --shm-size 50gb -v {base_path}:{docker_path} -p {tb_port}:6006 sanluosizhou/selfdl:mopo -c '
-DEVICES = [0, 1]
+DEVICES = [1]
 params = {
     'config': [
                 "examples.config.d4rl.halfcheetah_mixed",
@@ -107,21 +107,43 @@ params = {
 params = {
     'config': [
         "examples.config.d4rl.hopper_mixed",
+        "examples.config.d4rl.hopper_medium_expert",
+        "examples.config.d4rl.hopper_medium",
+        "examples.config.d4rl.hopper_random",
+    ],
+    "model_suffix": [50],
+    "info": ['hopper_mixed',
+            'hopper_medium_expert',
+             'hopper_medium',
+             'hopper_random',
+             # 'halfcheetah'
+             ],
+    'penalty_coeff': [0.05],
+    'length': [10],
+    'use_adapt': [True],
+    'seed': [8, 88, 888, 888],
+    'retrain': [True]
+}
+
+params = {
+    'config': [
         # "examples.config.d4rl.hopper_mixed",
         # "examples.config.d4rl.hopper_medium_expert",
+        "examples.config.d4rl.walker2d_medium",
         # "examples.config.d4rl.hopper_random",
     ],
     "model_suffix": [20],
-    "info": ['hopper_mixed',
-'hopper_mixed',
-             # 'walker2d_mixed_model_num_20_2560',
-             # 'walker2d_medium_expert_model_num_20_2560',
+    "info": ['walker_debug_no_clip_large_pool_normal_pool_123',
+            # 'hopper_medium_expert',
+            #  'hopper_medium',
+            #  'hopper_random',
              # 'halfcheetah'
              ],
     'penalty_coeff': [0.25],
-    'length': [100],
+    'length': [5],
     'use_adapt': [True],
-    'seed': [8]
+    'seed': [888],
+    # 'retrain': [True]
 }
 
 #
@@ -143,7 +165,7 @@ exp_num = len(params['info'])
 
 template = docker_template + '\"export CUDA_VISIBLE_DEVICES={0} && cd {1} && pip install -e . ' \
            '&& python simple_run/main.py {2}\"'
-template2 = docker_template_port + '"sleep 25 && cd {0} && tensorboard --logdir=./log/policy_learn"'
+template2 = docker_template_port + '"sleep 25 && cd {0} && tensorboard --logdir=./log"'
 
 template3 = docker_template + '\"cd {0} && pip install -e . ' \
            '&& python obs_mem_percent.py\"'
