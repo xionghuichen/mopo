@@ -112,10 +112,10 @@ params = {
         "examples.config.d4rl.hopper_random",
     ],
     "model_suffix": [50],
-    "info": ['hopper_mixed_0201_1',
-            'hopper_medium_expert_0201_1',
-             'hopper_medium_0201_1',
-             'hopper_random_0201_1',
+    "info": ['hopper_mixed_0201_2',
+            'hopper_medium_expert_0201_2',
+             'hopper_medium_0201_2',
+             'hopper_random_0201_2',
              # 'halfcheetah'
              ],
     'penalty_coeff': [0.05],
@@ -144,7 +144,7 @@ exp_num = len(params['info'])
 
 template = docker_template + '\"export CUDA_VISIBLE_DEVICES={0} && cd {1} && pip install -e . ' \
            '&& python simple_run/main.py {2}\"'
-template2 = docker_template_port + '"sleep 25 && cd {0} && tensorboard --logdir=./log/policy_learn"'
+template2 = docker_template_port + '"sleep 25 && cd {0} && tensorboard --logdir=./log"'
 
 template3 = docker_template + '\"cd {0} && pip install -e . ' \
            '&& python obs_mem_percent.py\"'

@@ -83,7 +83,7 @@ class MOPO(RLAlgorithm):
             separate_mean_var=False,
             identity_terminal=0,
             retrain=False,
-
+            kl_coeff=0.1,
             pool_load_path='',
             pool_load_max_size=0,
             model_name=None,
@@ -126,7 +126,7 @@ class MOPO(RLAlgorithm):
             self._env_name = model_name[:-(7+final_len)] + '-v0'
         else:
             self._env_name = model_name[:-(3+final_len)] + '-v0'
-
+        self._kl_coeff = kl_coeff
         model_name = self._env_name + ('_smv' if separate_mean_var else '') + '_{}_{}'.format(seed, num_networks)
         self._model_load_dir = model_load_dir
         if retrain:
@@ -488,7 +488,7 @@ class MOPO(RLAlgorithm):
         with tf.variable_scope('copy', reuse=False):
             _, _, _, _, _, std_copy, mu_copy = mlp_actor_critic(policy_state1, value_state1, action_ph, need_origin_mu=True,
                                                                       **ac_kwargs)
-            logp_old_pi = gaussian_likelihood(self.pi, mu_copy, tf.log(std_copy)) #tf.reduce_sum( * self._valid_ph) / valid_num
+            logp_old_pi = gaussian_likelihood(self.pi, tf.stop_gradient(mu_copy), tf.stop_gradient(tf.log(std_copy))) #tf.reduce_sum( * self._valid_ph) / valid_num
             logp_old_pi -= tf.reduce_sum(2 * (np.log(2) - self.pi - tf.nn.softplus(-2 * self.pi)), axis=-1)
             logp_old_pi = tf.reduce_sum(logp_old_pi * self._valid_ph[..., 0]) / valid_num
 
@@ -530,7 +530,7 @@ class MOPO(RLAlgorithm):
             raise NotImplementedError
 
 
-        policy_loss = tf.reduce_sum(policy_kl_losses * self._valid_ph[:, :, 0]) / valid_num - logp_old_pi
+        policy_loss = tf.reduce_sum(policy_kl_losses * self._valid_ph[:, :, 0]) / valid_num - logp_old_pi * self._kl_coeff
 
         # Q
         next_log_pis = logp_pi_next
