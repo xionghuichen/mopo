@@ -12,6 +12,7 @@ BACKUP_CONFIG:
   lib_dir: './build/lib/'
   backup_code_dir:
     - './mopo'
+    - './softlearning'
 
 LOG_USED:
   - 'stdout'

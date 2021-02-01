@@ -162,8 +162,8 @@ class MOPO(RLAlgorithm):
         self._retrain = retrain
         self._model_retain_epochs = model_retain_epochs
 
-        self._model_train_freq = int(model_train_freq / 2)
-        self._rollout_batch_size = int(rollout_batch_size / 2)
+        self._model_train_freq = int(model_train_freq)
+        self._rollout_batch_size = int(rollout_batch_size)
         # self._rollout_batch_size = int(np.ceil(int(rollout_batch_size) * 5 / self.fix_rollout_length))
         self._deterministic = deterministic
         self._rollout_random = rollout_random
@@ -251,7 +251,8 @@ class MOPO(RLAlgorithm):
                                                                                    np.min(_outputs), np.mean(_outputs), np.max(_outputs),))
         self._build()
         if self.adapt:
-            loader.restore_pool(self._env_pool, self._pool_load_path, self._pool_load_max_size, save_path=self._log_dir, adapt=self.adapt, maxlen=self.fix_rollout_length, policy_hook=get_hidden)
+            loader.restore_pool(self._env_pool, self._pool_load_path, self._pool_load_max_size,
+                                save_path=self._log_dir, adapt=self.adapt, maxlen=self.fix_rollout_length, policy_hook=get_hidden)
 
         print('[ DEBUG ] pool.size (after restore from pool) =', pool.size)
         self._init_pool_size = self._pool.size
@@ -986,7 +987,8 @@ class MOPO(RLAlgorithm):
             else:
                 # print("act: {}, obs: {}".format(act.shape, obs.shape))
                 next_obs, rew, term, info = self.fake_env.step(obs, act, **kwargs)
-                next_obs = np.clip(next_obs, self.min_state, self.max_state)
+                if self.adapt:
+                    next_obs = np.clip(next_obs, self.min_state, self.max_state)
                 unpenalized_rewards = info['unpenalized_rewards']
                 penalty = info['penalty']
             # print('[ DEBUG ] size of unpenalized_rewards: {}, size of current_nonterm: {}, size of penalty: {}'.format(

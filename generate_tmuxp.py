@@ -48,7 +48,7 @@ params = {
                 "examples.config.d4rl.walker2d_medium_expert",
                 "examples.config.d4rl.walker2d_medium",
                 "examples.config.d4rl.walker2d_random",
-                "examples.config.d4rl.walker2d_mixed",
+                "examples.config.d4rl.walker2d_medium",
                 "examples.config.d4rl.hopper_medium_expert",
                 "examples.config.d4rl.hopper_medium",
                 "examples.config.d4rl.hopper_random",
