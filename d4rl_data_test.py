@@ -31,8 +31,8 @@ def make_qlearning_dataset(data):
         data[k] = np.delete(data[k], ind_to_delete, axis=0)
     return data
 
-if __name__ == '__main__':
-    all_envs = ['hopper', 'walker2d', 'halfcheetah'] # , 'ant']
+def main():
+    all_envs = ['hopper', 'walker2d', 'halfcheetah']  # , 'ant']
     all_tasks = [
         '-medium-v0',
         '-medium-replay-v0',
@@ -52,6 +52,7 @@ if __name__ == '__main__':
             # data = d4rl.qlearning_dataset(gym.make(env_name))
             data = gym.make(env_name).get_dataset()
             data = make_qlearning_dataset(data)
+
             print(list(data.keys()), )
             for k in data:
                 print('{}: {}'.format(k, data[k].shape))
@@ -60,3 +61,21 @@ if __name__ == '__main__':
             if need_download:
                 system('cd {} && wget {}'.format(os.path.join(get_base_path(), 'datasets'), DATASET_URLS[env_name]))
     pass
+
+if __name__ == '__main__':
+    # data = make_qlearning_dataset(gym.make('hopper-medium-v0').get_dataset())
+    data = gym.make('hopper-medium-expert-v0').get_dataset()
+    for k in data:
+        data[k] = data[k][309:]
+    print(data['observations'][0])
+    last_i = -1
+    for i in range(data['observations'].shape[0]):
+
+        if data['terminals'][i] or data['timeouts'][i]:
+            print('{}, {}, done: {}, timeouts: {}'.format(i-last_i, i, data['terminals'][i], data['timeouts'][i]))
+            if data['timeouts'][i]:
+                print('='*20)
+            if i - last_i > 1000:
+                exit(1)
+                print('='*40)
+            last_i = i
