@@ -368,6 +368,7 @@ class BNN:
 
     def train(self, inputs, targets,
               batch_size=32, max_epochs=None, max_epochs_since_update=5,
+              test_only=False,
               hide_progress=False, holdout_ratio=0.0, max_logging=1000, max_grad_updates=None, timer=None, max_t=None):
         """Trains/Continues network training
 
@@ -419,13 +420,14 @@ class BNN:
         grad_updates = 0
         for epoch in epoch_iter:
             tester.time_step_holder.set_time(epoch)
-            for batch_num in range(int(np.ceil(idxs.shape[-1] / batch_size))):
-                batch_idxs = idxs[:, batch_num * batch_size:(batch_num + 1) * batch_size]
-                self.sess.run(
-                    self.train_op,
-                    feed_dict={self.sy_train_in: inputs[batch_idxs], self.sy_train_targ: targets[batch_idxs]}
-                )
-                grad_updates += 1
+            if not test_only:
+                for batch_num in range(int(np.ceil(idxs.shape[-1] / batch_size))):
+                    batch_idxs = idxs[:, batch_num * batch_size:(batch_num + 1) * batch_size]
+                    self.sess.run(
+                        self.train_op,
+                        feed_dict={self.sy_train_in: inputs[batch_idxs], self.sy_train_targ: targets[batch_idxs]}
+                    )
+                    grad_updates += 1
 
             idxs = shuffle_rows(idxs)
             if not hide_progress:

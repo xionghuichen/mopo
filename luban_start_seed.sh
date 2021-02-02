@@ -17,6 +17,8 @@ cd mopo
 pip install -e .
 echo "--- complete install MOPO ---"
 cd simple_run
+ls -lha /home/luban/.d4rl/datasets/
+
 echo "python main.py $* --seed 8"
 {
   python main.py $* --seed 8

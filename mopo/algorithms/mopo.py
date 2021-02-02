@@ -738,7 +738,11 @@ class MOPO(RLAlgorithm):
         )
         # train dynamics model offline
         max_epochs = 1 if self._model.model_loaded else None
-        model_train_metrics = self._train_model(batch_size=256, max_epochs=max_epochs, holdout_ratio=0.2, max_t=self._max_model_t)
+        test_only = True if self._model.model_loaded else False
+
+        model_train_metrics = self._train_model(batch_size=256, max_epochs=max_epochs,
+                                                holdout_ratio=0.2, max_t=self._max_model_t,
+                                                test_only=test_only)
         # model_train_metrics = {}
         if self._retrain:
             self._model.save(self._model_load_dir, '')
