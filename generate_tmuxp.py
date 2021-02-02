@@ -5,7 +5,7 @@ import os
 
 def get_base_path():
     return os.path.dirname(os.path.abspath(__file__))
-config = {"session_name": "run-all-1199", "windows": []}
+config = {"session_name": "run-all-1299", "windows": []}
 base_path = get_base_path()
 docker_path = "/root/mopo"
 path = docker_path
@@ -14,7 +14,7 @@ user_name = 'amax'
 
 docker_template = f'docker run --rm -it --shm-size 50gb -v {base_path}:{docker_path}  -v /home/{user_name}/.d4rl:/root/.d4rl sanluosizhou/selfdl:mopo -c '
 docker_template_port = f'docker run --rm -it --shm-size 50gb -v {base_path}:{docker_path} -p {tb_port}:6006 sanluosizhou/selfdl:mopo -c '
-DEVICES = [1]
+DEVICES = [0, 1]
 params = {
     'config': [
                 "examples.config.d4rl.halfcheetah_mixed",
@@ -111,40 +111,40 @@ params = {
         "examples.config.d4rl.hopper_medium",
         "examples.config.d4rl.hopper_random",
     ],
-    "model_suffix": [50],
-    "info": ['hopper_mixed',
-            'hopper_medium_expert',
-             'hopper_medium',
-             'hopper_random',
-             # 'halfcheetah'
-             ],
-    'penalty_coeff': [0.05],
-    'length': [10],
-    'use_adapt': [True],
-    'seed': [8, 88, 888, 888],
-    'retrain': [True]
-}
-
-params = {
-    'config': [
-        # "examples.config.d4rl.hopper_mixed",
-        # "examples.config.d4rl.hopper_medium_expert",
-        "examples.config.d4rl.walker2d_medium",
-        # "examples.config.d4rl.hopper_random",
-    ],
     "model_suffix": [20],
-    "info": ['walker_debug_no_clip_large_pool_normal_pool_123',
-            # 'hopper_medium_expert',
-            #  'hopper_medium',
-            #  'hopper_random',
+    "info": ['hopper_mixed_0202_5_0.25',
+            'hopper_medium_expert_0202_5_0.25',
+             'hopper_medium_0202_5_0.25',
+             'hopper_random_0202_5_0.25',
              # 'halfcheetah'
              ],
     'penalty_coeff': [0.25],
     'length': [5],
     'use_adapt': [True],
-    'seed': [888],
+    'seed': [8, 88, 888, 888],
     # 'retrain': [True]
 }
+#
+# params = {
+#     'config': [
+#         # "examples.config.d4rl.hopper_mixed",
+#         # "examples.config.d4rl.hopper_medium_expert",
+#         "examples.config.d4rl.walker2d_medium",
+#         # "examples.config.d4rl.hopper_random",
+#     ],
+#     "model_suffix": [20],
+#     "info": ['walker_debug_no_clip_large_pool_normal_pool_123',
+#             # 'hopper_medium_expert',
+#             #  'hopper_medium',
+#             #  'hopper_random',
+#              # 'halfcheetah'
+#              ],
+#     'penalty_coeff': [0.25],
+#     'length': [5],
+#     'use_adapt': [True],
+#     'seed': [888],
+#     # 'retrain': [True]
+# }
 
 #
 # params = {
