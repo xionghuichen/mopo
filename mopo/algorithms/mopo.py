@@ -994,7 +994,7 @@ class MOPO(RLAlgorithm):
             else:
                 # print("act: {}, obs: {}".format(act.shape, obs.shape))
                 next_obs, rew, term, info = self.fake_env.step(obs, act, **kwargs)
-                next_obs = np.clip(next_obs, self.min_state, self.max_state)
+                # next_obs = np.clip(next_obs, self.min_state, self.max_state)
                 unpenalized_rewards = info['unpenalized_rewards']
                 penalty = info['penalty']
             # print('[ DEBUG ] size of unpenalized_rewards: {}, size of current_nonterm: {}, size of penalty: {}'.format(
