@@ -24,27 +24,38 @@ def allocate_hidden_state(replay_pool_full_traj, get_action, make_hidden):
     state = replay_pool_full_traj
     pass
 
+def qlearning_dataset(env_name):
+    import gym
+    import d4rl
+    return make_qlearning_dataset(gym.make(env_name).get_dataset())
+
+def make_qlearning_dataset(data):
+    data['next_observations'] = data['observations'][1:]
+    data['next_observations'] = np.copy(np.concatenate((data['next_observations'], data['observations'][-1:]), axis=0))
+    if not data['terminals'][-1]:
+        print('final step is not terminal step, drop it')
+        for k in data:
+            data[k] = data[k][:-1]
+    ind_to_delete = []
+    for ind, (terminal, timeout) in enumerate(zip(data['terminals'], data['timeouts'])):
+        if terminal:
+            data['next_observations'][ind] = data['observations'][ind]
+        if timeout:
+            ind_to_delete.append(ind)
+    for k in data:
+        data[k] = np.delete(data[k], ind_to_delete, axis=0)
+    return data
+
 def restore_pool_d4rl(replay_pool, name, adapt=False, maxlen=5, policy_hook=None):
     import gym
     import d4rl
     env = gym.make(name)
-    is_hopper_medium = name == 'hopper-medium-v0'
-    is_hopper_med_expert = name == 'hopper-medium-expert-v0'
-    illed_idx_hopper_medium = [113488, 171088, 294360, 381282, 389466, 703200, 871770, 995870]
-    illed_idx_hopper_medium_exp = get_illed_med_exp()
     get_hidden = policy_hook if policy_hook else None
     mask_steps = env._max_episode_steps - 1
-    data = d4rl.qlearning_dataset(gym.make(name))
-    if is_hopper_medium:
-        for k in data:
-            data[k] = np.delete(data[k], illed_idx_hopper_medium, axis=0)
-    if is_hopper_med_expert:
-        for k in data:
-            data[k] = np.delete(data[k], illed_idx_hopper_medium_exp, axis=0)
+    data = qlearning_dataset(name)
     data['rewards'] = np.expand_dims(data['rewards'], axis=1)
     data['terminals'] = np.expand_dims(data['terminals'], axis=1)
     data['last_actions'] = np.concatenate((np.zeros((1, data['actions'].shape[1])), data['actions'][:-1, :]), axis=0).copy()
-    # print(data['actions'] - data['last_actions'])
     data['first_step'] = np.zeros_like(data['terminals'])
     data['end_step'] = np.zeros_like(data['terminals'])
     data['valid'] = np.ones_like(data['terminals'])
@@ -54,30 +65,14 @@ def restore_pool_d4rl(replay_pool, name, adapt=False, maxlen=5, policy_hook=None
     traj_num = 1
     traj_lens = []
     print('[ DEBUG ] obs shape: ', data['observations'].shape)
-    ill_idxs = []
     for i in range(data['observations'].shape[0]):
         flag = True
         if i >= 1:
-            # if is_hopper_med_expert and np.max(np.abs(data['next_observations'][i] - data['observations'][i])) > 8.0 and \
-            #         np.all(np.abs(data['next_observations'][i][1:]) < 5.5e-3) and i - last_start > 200:
-            #     data['next_observations'][i] = data['observations'][i]
-            #     ill_idxs.append(i)
             flag = (data['observations'][i] == data['next_observations'][i-1]).all()
             if data['terminals'][i-1]:
+                assert not flag
                 flag = False
-
-        # if np.max(np.abs(data['next_observations'][i] - data['observations'][i])) > 8.0:
-        #     print('1: ', i - last_start, data['terminals'][i-1], data['terminals'][i], is_hopper_medium, name)
-        #     print(data['observations'][i - 1], data['next_observations'][i - 1], data['observations'][i],
-        #           data['next_observations'][i], )
         if not flag:
-            if data['terminals'][i - 1]:
-                data['next_observations'][i - 1] = data['observations'][i - 1]
-            # if np.max(np.abs(data['next_observations'][i] - data['observations'][i])) > 8.0:
-            #     ill_idxs.append(i)
-            #     print('2: ', i, i - last_start, data['terminals'][i - 1], data['terminals'][i], (data['observations'][i] == data['next_observations'][i-1]).all())
-            #     print(data['observations'][i-1], data['next_observations'][i-1], data['observations'][i], data['next_observations'][i], )
-            # print('[ DEBUG ] obs: {}, next obs: {}, delta: {}'.format(data['observations'][i-1], data['next_observations'][i-1], data['next_observations'][i-1] - data['observations'][i-1]), )
             data['last_actions'][i][:] = 0
             data['first_step'][i][:] = 1
             data['end_step'][i-1][:] = 1
@@ -87,8 +82,8 @@ def restore_pool_d4rl(replay_pool, name, adapt=False, maxlen=5, policy_hook=None
             traj_num += 1
             traj_lens.append(traj_len)
             if traj_len > 999:
-                print('[ DEBUG + WARN ]: trajectory length is too large: current step is ', i, traj_num,)
-    print(ill_idxs)
+                raise ValueError('trajectory length is too large: current step is {}, {}'.format(i, traj_len))
+                print('[ DEBUG + WARN ]: trajectory length is too large: current step is ', i, traj_len,)
     traj_lens.append(data['observations'].shape[0] - last_start)
     assert len(traj_lens) == traj_num
     print("[ DEBUG ]: adapt is ", adapt)
@@ -153,34 +148,6 @@ def restore_pool_d4rl(replay_pool, name, adapt=False, maxlen=5, policy_hook=None
         replay_pool._size = int(min(mini_traj_cum_num + replay_pool._size, replay_pool._max_size))
         replay_pool._pointer %= replay_pool._max_size
         print('[ DEBUG ] data num: {}, max size: {}'.format(mini_traj_cum_num, replay_pool._max_size))
-        # data_adapt = {k: [] for k in data}
-        # it_traj = {k: [] for k in data}
-        # current_len = 0
-        # for start_ind in range(1):
-        #     traj_start_ind = 0
-        #     for i in range(data['observations'].shape[0]):
-        #         if i - traj_start_ind < start_ind:
-        #             continue
-        #         for k in data:
-        #             it_traj[k].append(data[k][i])
-        #         current_len += 1
-        #         if data['end_step'][i]:
-        #             traj_start_ind = i + 1
-        #             for j in range(maxlen - current_len):
-        #                 for k in data:
-        #                     it_traj[k].append(np.zeros_like(data[k][i]))
-        #                 current_len += 1
-        #         if current_len >= maxlen:
-        #             for k in data_adapt:
-        #                 data_adapt[k].append(np.expand_dims(np.vstack(it_traj[k]), 0))
-        #             it_traj = {k: [] for k in data}
-        #             current_len = 0
-        # data_adapt = {k: np.vstack(v) for k, v in data_adapt.items()}
-        # # data_adapt['last_actions'][:, 0] = 0
-        # for k, v in data_adapt.items():
-        #     print('[ DEBUG ] key of env data: {}: value is {}'.format(k, v.shape))
-        # # print('[ DEBUG ] ----------')
-        # replay_pool.add_samples(data_adapt)
         return
     replay_pool.add_samples(data)
 
@@ -188,24 +155,14 @@ def reset_hidden_state(replay_pool, name, maxlen=5, policy_hook=None):
     import gym
     import d4rl
     env = gym.make(name)
-    is_hopper_medium = name == 'hopper-medium-v0'
-    is_hopper_med_expert = name == 'hopper-medium-expert-v0'
-    illed_idx_hopper_medium = [113488, 171088, 294360, 381282, 389466, 703200, 871770, 995870]
-    illed_idx_hopper_medium_exp = get_illed_med_exp()
+
     get_hidden = policy_hook if policy_hook else None
     mask_steps = env._max_episode_steps - 1
-    data = d4rl.qlearning_dataset(gym.make(name))
-    if is_hopper_medium:
-        for k in data:
-            data[k] = np.delete(data[k], illed_idx_hopper_medium, axis=0)
-    if is_hopper_med_expert:
-        for k in data:
-            data[k] = np.delete(data[k], illed_idx_hopper_medium_exp, axis=0)
+    data = qlearning_dataset(name)
     data['rewards'] = np.expand_dims(data['rewards'], axis=1)
     data['terminals'] = np.expand_dims(data['terminals'], axis=1)
     data['last_actions'] = np.concatenate((np.zeros((1, data['actions'].shape[1])), data['actions'][:-1, :]),
                                           axis=0).copy()
-    # print(data['actions'] - data['last_actions'])
     data['first_step'] = np.zeros_like(data['terminals'])
     data['end_step'] = np.zeros_like(data['terminals'])
     data['valid'] = np.ones_like(data['terminals'])
@@ -217,19 +174,15 @@ def reset_hidden_state(replay_pool, name, maxlen=5, policy_hook=None):
     print('[ DEBUG ] reset_hidden_state, obs shape: ', data['observations'].shape)
     for i in range(data['observations'].shape[0]):
         flag = True
-        # if is_hopper_med_expert and np.max(np.abs(data['next_observations'][i] - data['observations'][i])) > 8.0 and \
-        #         np.all(np.abs(data['next_observations'][i][1:]) < 5.5e-3) and i - last_start > 200:
-        #     data['next_observations'][i] = data['observations'][i]
         if i >= 1:
             flag = (data['observations'][i] == data['next_observations'][i - 1]).all()
             if data['terminals'][i - 1]:
+                assert not flag
                 flag = False
         if not flag:
             data['last_actions'][i, :] = 0
             data['first_step'][i, :] = 1
             data['end_step'][i - 1, :] = 1
-            if data['terminals'][i - 1]:
-                data['next_observations'][i-1] = data['observations'][i-1]
             traj_len = i - last_start
             max_traj_len = max(max_traj_len, traj_len)
             last_start = i
@@ -237,8 +190,6 @@ def reset_hidden_state(replay_pool, name, maxlen=5, policy_hook=None):
             traj_lens.append(traj_len)
             if traj_len > 999:
                 print('[ DEBUG + WARN ] reset_hidden_state: trajectory length is too large: current step is ', i, traj_num, )
-    # making init hidden state
-    # 1, making state and lst action
     data['policy_hidden'] = None # np.zeros((data['last_actions'].shape[0], policy_hidden.shape[-1]))
     data['value_hidden'] = None # np.zeros((data['last_actions'].shape[0], value_hidden.shape[-1]))
     last_start_ind = 0
@@ -272,7 +223,7 @@ def reset_hidden_state(replay_pool, name, maxlen=5, policy_hook=None):
             data['value_hidden'][start_ind:(start_ind + item)] = value_hidden[ind, :item]
             start_ind += item
         last_start_ind = start_ind
-    print('[ DEBUG ] reset_hidden_state: inferring hidden state done')
+    print('[ DEBUG ] reset_hidden_state: inferring hidden state done, last_start_ind: {}, pointer: {}'.format(last_start_ind, replay_pool._pointer))
     data_new = {'policy_hidden': data['policy_hidden'],
             'value_hidden': data['value_hidden']}
     data_adapt = {k: [] for k in data_new}
@@ -281,45 +232,22 @@ def reset_hidden_state(replay_pool, name, maxlen=5, policy_hook=None):
     data_target = {k: replay_pool.fields[k] for k in data_new}
     traj_target_ind = 0
     mini_target_ind = 0
+
     for k in data_new:
         data_target[k][traj_target_ind, :] = 0
     for i in range(data_new['policy_hidden'].shape[0]):
+        if mini_target_ind == 0:
+            for k in data_new:
+                data_target[k][traj_target_ind, :] = 0
         for k in data_new:
             data_target[k][traj_target_ind, mini_target_ind, :] = data_new[k][i]
         mini_target_ind += 1
         if data['end_step'][i] or mini_target_ind == maxlen:
+            assert np.sum(replay_pool['valid'][traj_target_ind]) == mini_target_ind
             traj_target_ind += 1
             traj_target_ind = traj_target_ind % replay_pool._max_size
             mini_target_ind = 0
-            for k in data_new:
-                data_target[k][traj_target_ind, :] = 0
 
-    # for start_ind in range(1):
-    #     traj_start_ind = 0
-    #     for i in range(data_new['policy_hidden'].shape[0]):
-    #         if i - traj_start_ind < start_ind:
-    #             continue
-    #         for k in data_new:
-    #             it_traj[k].append(data_new[k][i])
-    #         current_len += 1
-    #         if data['end_step'][i]:
-    #             traj_start_ind = i + 1
-    #             for j in range(maxlen - current_len):
-    #                 for k in data_new:
-    #                     it_traj[k].append(np.zeros_like(data_new[k][i]))
-    #                 current_len += 1
-    #         if current_len >= maxlen:
-    #             for k in data_adapt:
-    #                 data_adapt[k].append(np.expand_dims(np.array(it_traj[k]), 0))
-    #             it_traj = {k: [] for k in data_new}
-    #             current_len = 0
-    # data_adapt = {k: np.vstack(v) for k, v in data_adapt.items()}
-    # # data_adapt['last_actions'][:, 0] = 0
-    # for k, v in data_adapt.items():
-    #     print('[ DEBUG ] reset_hidden_state:  key of env data: {}: value is {}'.format(k, v.shape))
-    # replay_pool.restore_samples(data_adapt)
-    # print('[ DEBUG ] ----------')
-    # replay_pool.add_samples(data_adapt)
 
 
 def restore_pool_softlearning(replay_pool, experiment_root, max_size, save_path=None):
