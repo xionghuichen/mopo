@@ -138,7 +138,7 @@ def restore_pool_d4rl(replay_pool, name, adapt=False, maxlen=5, policy_hook=None
         data_target[k][traj_target_ind, :] = 0
     if adapt:
         for i in range(data['policy_hidden'].shape[0]):
-            if traj_target_ind == 0:
+            if mini_target_ind == 0:
                 for k in data:
                     if k in data_target:
                         data_target[k][traj_target_ind, :] = 0
@@ -201,6 +201,8 @@ def reset_hidden_state(replay_pool, name, maxlen=5, policy_hook=None):
     data['value_hidden'] = None # np.zeros((data['last_actions'].shape[0], value_hidden.shape[-1]))
     last_start_ind = 0
     traj_num_to_infer = 400
+    traj_lens.append(data['observations'].shape[0] - last_start)
+    assert len(traj_lens) == traj_num
 
     for i_ter in range(int(np.ceil(traj_num / traj_num_to_infer))):
         traj_lens_it = traj_lens[traj_num_to_infer * i_ter : min(traj_num_to_infer * (i_ter + 1), traj_num)]
@@ -250,7 +252,8 @@ def reset_hidden_state(replay_pool, name, maxlen=5, policy_hook=None):
             data_target[k][traj_target_ind, mini_target_ind, :] = data_new[k][i]
         mini_target_ind += 1
         if data['end_step'][i] or mini_target_ind == maxlen:
-            assert np.sum(replay_pool['valid'][traj_target_ind]) == mini_target_ind
+
+            assert np.sum(replay_pool.fields['valid'][traj_target_ind]) == mini_target_ind, 'expected: {}, current: {}, idx: {}'.format(np.sum(replay_pool.fields['valid'][traj_target_ind]), mini_target_ind, i)
             traj_target_ind += 1
             traj_target_ind = traj_target_ind % replay_pool._max_size
             mini_target_ind = 0
