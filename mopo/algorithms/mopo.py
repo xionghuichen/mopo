@@ -263,8 +263,6 @@ class MOPO(RLAlgorithm):
         self._init_pool_size = self._pool.size
         print('[ MOPO ] Starting with pool size: {}, env_pool size: {}'.format(self._init_pool_size, self._env_pool.size))
         print('[ DEBUG ] pool ptr: {}, pool max size: {}, pool size: {}'.format(self._env_pool._pointer, self._env_pool._max_size, self._env_pool.size))
-        # for _ in range(100):
-        #     self._reinit_pool()
         ####
 
 
@@ -630,7 +628,6 @@ class MOPO(RLAlgorithm):
 
         self._session.run(tf.global_variables_initializer())
         self._session.run(self.target_init)
-
 
     def get_action_hidden(self, state, action, last_action, length):
         def get_hidden(state_, action_, last_action_, length_):

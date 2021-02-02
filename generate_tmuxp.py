@@ -106,23 +106,23 @@ params = {
 
 params = {
     'config': [
-        "examples.config.d4rl.hopper_mixed",
-        "examples.config.d4rl.hopper_medium_expert",
-        "examples.config.d4rl.hopper_medium",
-        "examples.config.d4rl.hopper_random",
+        "examples.config.d4rl.walker2d_mixed",
+        "examples.config.d4rl.walker2d_medium_expert",
+        "examples.config.d4rl.walker2d_medium",
+        "examples.config.d4rl.walker2d_random",
     ],
     "model_suffix": [20],
-    "info": ['hopper_mixed_0202_5_0.25',
-            'hopper_medium_expert_0202_5_0.25',
-             'hopper_medium_0202_5_0.25',
-             'hopper_random_0202_5_0.25',
+    "info": ['halfcheetah_mixed_new_data',
+            'halfcheetah_medium_expert_new_data',
+             'halfcheetah_medium_new_data',
+             'halfcheetah_random_new_data',
              # 'halfcheetah'
              ],
     'penalty_coeff': [0.25],
     'length': [5],
     'use_adapt': [True],
     'seed': [8, 88, 888, 888],
-    # 'retrain': [True]
+    'retrain': [True]
 }
 #
 # params = {
