@@ -33,13 +33,14 @@ At *A, B, C*, no matter what current action is, go to *s0*.
 **Uncertainty**
 
 It is uncertain what state we will enter after executing *True* at *s0*. 
-We construct all possible environments, i.e. three environment. 
-For example, at the first environment, agents can arrive *A* after executing *True* at *s0*.
+We construct all possible environments, i.e. three environments. 
+For example, at the first environment, agents will always arrive *A* after executing *True* at *s0*.
 
 ## Learn
 
 We try to learn an adaptable policy on the constructed environments.
 At the beginning of each trajectory, we randomly sample an environment from the environment set. 
+Then, the agent will sample a trajectory from the environment.
 We optimize the policy to maximize the expected long term return for 100 iterations via PPO.
 
 ## Test
@@ -70,3 +71,19 @@ s0->C->s0->C->s0->...C->s0->C
 From the behaviour of the agent in the env_id_3 environment, we can observe the differences between the agents.
 The adaptable agent recognizes (probes) the environment after reaching state *B*, and goes to *D* subsequently.
 The agent without adaptable ability only keeps a single behaviour pattern at the three environments.
+
+## Minors
+
+### network architecture
+Refer to [net_config.py](net_config.py) for both fc network and rnn network.
+
+### environment setting
+Refer to [env.py](env.py) for environment setting.
+
+### hyperparameter of PPO
+Refer to [ppo.py](ppo.py) for ppo hyperparameter.
+
+### conduct it
+[run.py](run.py)
+
+
