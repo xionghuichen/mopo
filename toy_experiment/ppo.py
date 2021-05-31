@@ -1,3 +1,5 @@
+import os.path
+
 import torch
 
 from env import RandomGridWorld
@@ -17,6 +19,9 @@ class PPO:
         self.gamma = 0.99
         self.lam = 0.97
         self.clip_param = 0.1
+        self.ent_coeff = 1e-2
+        self.policy.network.to(self.device)
+        self.value.network.to(self.device)
 
     def get_gaes(self, traj):
         reward = [item[3] for item in traj]
@@ -56,7 +61,7 @@ class PPO:
             done = False
             traj = []
             while not done:
-                state_tensor = torch.Tensor(state, device=self.device).unsqueeze(0)
+                state_tensor = torch.Tensor(state).to(device=self.device).unsqueeze(0)
                 action_distribution, hidden = self.policy.get_action(state_tensor, hidden)
                 value, value_hidden = self.value.get_value(state_tensor, value_hidden)
                 dist = torch.distributions.Bernoulli(action_distribution)
@@ -85,9 +90,10 @@ class PPO:
             trajs, total_num = mem.sample_trajs(batch_size, 10000)
             state, action, gae, ret, mask, old_logp = trajs.state, trajs.action, trajs.gae, trajs.ret, trajs.mask, trajs.logp
             traj_num = state.shape[0]
-            state, action, gae, ret, mask, old_logp = map(lambda x: torch.Tensor(x, device=self.device), [
+            state, action, gae, ret, mask, old_logp = map(lambda x: torch.Tensor(x).to(device=self.device), [
                 state, action, gae, ret, mask, old_logp
             ])
+
             valid_num = mask.sum().item()
             policy_hidden = self.policy.make_init_hidden(traj_num, device=self.device)
             value_hidden = self.value.make_init_hidden(traj_num, device=self.device)
@@ -103,6 +109,7 @@ class PPO:
                                         1.0 + self.clip_param)
             clipped_loss = clipped_ratio * gae
             actor_loss = -(torch.min(surrogate, clipped_loss) * mask).sum() / valid_num
+            actor_loss = actor_loss - self.ent_coeff * entropy
             self.policy_optim.zero_grad()
             actor_loss.backward()
             self.policy_optim.step()
@@ -123,6 +130,25 @@ class PPO:
             mem = self.sample(1000)
             print('rets: ', np.mean(mem.rets), 'num: ', mem.size)
             self.train(mem)
+            self.save()
+
+    @property
+    def model_path(self):
+        base_path = os.path.dirname(os.path.abspath(__file__))
+        path = os.path.join(base_path, str(not self.use_fc).lower(), 'policy.pt')
+
+        return path
+
+    def save(self):
+        path = self.model_path
+        dir_name = os.path.dirname(path)
+        if not os.path.exists(dir_name):
+            os.makedirs(dir_name)
+        self.policy.network.save(path)
+
+    def load(self):
+        path = self.model_path
+        self.policy.network.load(path)
 
 if __name__ == '__main__':
     ppo = PPO(False)
