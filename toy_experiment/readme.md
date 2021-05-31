@@ -102,4 +102,25 @@ Refer to [ppo.py](ppo.py) for ppo hyperparameter.
 ### conduct it
 [run.py](run.py)
 
+# Running Instructions
+## Learn
+### Learn an adaptable agent
+```shell
+python run.py --adapt
+```
 
+### Learn an agent without adaptable ability
+```shell
+python run.py
+```
+
+## Test
+### Test the adaptable agent
+```shell
+python run.py --adapt --test
+```
+
+### Test the agent without adaptable ability
+```shell
+python run.py --test
+```
