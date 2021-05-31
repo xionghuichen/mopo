@@ -30,12 +30,16 @@ At *s0*, if action is
 
 At *A, B, C*, no matter what current action is, go to *s0*.
 
+The maximum rollout length is 100.
 **Uncertainty**
 
 It is uncertain what state we will enter after executing *True* at *s0*. 
 We construct all possible environments, i.e. three environments. 
 For example, at the first environment, agents will always arrive *A* after executing *True* at *s0*.
 
+**Optimal policy**
+For the environment that can arrive at *A, C*, the optimal policy is always choose *True* at *s0*.
+However, in the environment that can reach *B*, the optimal policy is choosing *False* at *s0*.
 ## Learn
 
 We try to learn an adaptable policy on the constructed environments.
@@ -72,6 +76,10 @@ From the behaviour of the agent in the env_id_3 environment, we can observe the 
 The adaptable agent recognizes (probes) the environment after reaching state *B*, and goes to *D* subsequently.
 The agent without adaptable ability only keeps a single behaviour pattern at the three environments.
 
+We can obviously find a probing phase in the behaviour pattern of the adaptable policy:
+The policy we try to choose *True* to probe the environment.
+The environment can be determined after arriving at *A, B, C*.
+Finally, the adaptable policy queries the optimal policy according to the environment.
 ## Minors
 
 ### network architecture
