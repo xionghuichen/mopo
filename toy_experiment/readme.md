@@ -52,6 +52,7 @@ We test the learned policy on all environments.
 In order to make a comparison, we also learn a policy without adaptable ability.
 ### Results
 **w/o adaptable ability**
+
 We present the return as well as the trajectory sampled by the agent.
 ```
 env_id: 2 , rets:  510.0 num:  101 , aver len:  101.0
@@ -61,8 +62,15 @@ s0->B->s0->B->s0->...B->s0->B
 env_id: 4 , rets:  255.0 num:  101 , aver len:  101.0
 s0->C->s0->C->s0->...C->s0->C
 ```
+Here, `env_id` denotes the unique id of the environment. 
+`rets` is the cumulative return of the agent. 
+`num` is the total transition number.
+`aver len` is average trajectory length.
+`s0->...` is the trajectory of the agent.
+
 
 **w/ adaptable ability**
+
 ```
 env_id: 2 , rets:  510.0 num:  101 , aver len:  101.0
 s0->A->s0->A->s0->...A->s0->A
@@ -72,12 +80,12 @@ env_id: 4 , rets:  255.0 num:  101 , aver len:  101.0
 s0->C->s0->C->s0->...C->s0->C
 ```
 
-From the behaviour of the agent in the env_id_3 environment, we can observe the differences between the agents.
+From the behaviour of the agent in the `env_id: 3` environment, we can observe the differences between the agents.
 The adaptable agent recognizes (probes) the environment after reaching state *B*, and goes to *D* subsequently.
 The agent without adaptable ability only keeps a single behaviour pattern at the three environments.
 
 We can obviously find a probing phase in the behaviour pattern of the adaptable policy:
-The policy we try to choose *True* to probe the environment.
+The policy will try to choose *True* to probe the environment.
 The environment can be determined after arriving at *A, B, C*.
 Finally, the adaptable policy queries the optimal policy according to the environment.
 ## Minors
