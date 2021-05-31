@@ -21,7 +21,7 @@ class PPO:
         self.gamma = 0.99
         self.lam = 0.97
         self.clip_param = 0.1
-        self.ent_coeff = 1e-2
+        self.ent_coeff = 1e-1
         self.policy.network.to(self.device)
         self.value.network.to(self.device)
 
@@ -134,6 +134,7 @@ class PPO:
             mem = self.sample(1000)
             print('rets: ', np.mean(mem.rets), 'num: ', mem.size)
             self.train(mem)
+            self.test(load=False)
             self.save()
 
     def get_trajectory_illustration(self, state, next_state):
@@ -154,8 +155,9 @@ class PPO:
             state_str = state_str[:18] + '...' + state_str[-8:]
         return state_str
 
-    def test(self):
-        self.load()
+    def test(self, load=True):
+        if load:
+            self.load()
         for env in [2, 3, 4]:
             self.env.set_fix_env(env)
             mem = self.sample(1, 30000, True)
