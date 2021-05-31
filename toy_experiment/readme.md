@@ -31,9 +31,10 @@ At *s0*, if action is
 - True, go to one of *A, B, C*
 - False, go to *D*
 
-At *A, B, C*, no matter what current action is, go to *s0*.
+At *A, B, C*, no matter what action we take, go to *s0*.
 
 The maximum rollout length is 100.
+
 **Uncertainty**
 
 It is uncertain what state we will enter after executing *True* at *s0*. 
@@ -41,6 +42,7 @@ We construct all possible environments, i.e. three environments.
 For example, at the first environment, agents will always arrive *A* after executing *True* at *s0*.
 
 **Optimal policy**
+
 For the environment that can arrive at *A, C*, the optimal policy is always choose *True* at *s0*.
 However, in the environment that can reach *B*, the optimal policy is choosing *False* at *s0*.
 ## Learn
