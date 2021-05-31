@@ -1,5 +1,8 @@
 # Toy Task
-
+This is a toy experiment designed to verify the justification in MAPLE. 
+In this environment we develop a grid world environment with uncertainty.
+We construct all possible environment and compare the agents w/ and w/o adaptation ability.
+We also provide an experiment conduction instruction to help reproduce the result.
 ## Environment Descriptions
 
 **State space**
