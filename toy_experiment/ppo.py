@@ -7,6 +7,8 @@ from policy import Policy
 from value import Value
 from replay_memory import MemoryNp
 import numpy as np
+
+
 class PPO:
     def __init__(self, use_fc=False):
         self.use_fc = use_fc
@@ -51,7 +53,7 @@ class PPO:
             advants[t] = running_advants
         return returns, advants
 
-    def sample(self, traj_num, max_transition_num=20000):
+    def sample(self, traj_num, max_transition_num=20000, deterministic=False):
         memory = MemoryNp(rnn_slice_length=1)
         total_step = 0
         for traj_ind in range(traj_num):
@@ -68,6 +70,8 @@ class PPO:
                 sampled_action = dist.sample()
                 logp = dist.log_prob(sampled_action)
                 action = sampled_action.item()
+                if deterministic:
+                    action = 1 if action_distribution.item() > 0.5 else 0
                 next_state, reward, done, info = self.env.step(action)
                 traj.append([state, action, next_state, reward, done, value.item(), logp.item()])
                 state = next_state
@@ -132,6 +136,33 @@ class PPO:
             self.train(mem)
             self.save()
 
+    def get_trajectory_illustration(self, state, next_state):
+        state = np.vstack([state, next_state[-1:]])
+        state_str = ''
+        for i in range(state.shape[0]):
+            state_ = state[i]
+            ind = 0
+            for j in range(state.shape[1]):
+                if state_[j]:
+                    ind = j
+                    break
+            name = self.env._ind_to_name[ind]
+            state_str += name
+            if i < state.shape[0] - 1:
+                state_str += '->'
+        if len(state_str) > 20:
+            state_str = state_str[:18] + '...' + state_str[-8:]
+        return state_str
+
+    def test(self):
+        self.load()
+        for env in [2, 3, 4]:
+            self.env.set_fix_env(env)
+            mem = self.sample(1, 30000, True)
+            trajs, transition_num = mem.sample_trajs(1)
+            print('env_id: {}'.format(env), ', rets: ', np.mean(mem.rets), 'num: ', mem.size, ', aver len: ', mem.size / len(mem.memory_buffer))
+            print(self.get_trajectory_illustration(trajs.state[0], trajs.next_state[0]))
+
     @property
     def model_path(self):
         base_path = os.path.dirname(os.path.abspath(__file__))
@@ -148,8 +179,8 @@ class PPO:
 
     def load(self):
         path = self.model_path
-        self.policy.network.load(path)
+        self.policy.network.load(path, map_location=self.device)
 
 if __name__ == '__main__':
     ppo = PPO(False)
-    ppo.run()
+    ppo.test()

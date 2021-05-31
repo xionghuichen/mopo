@@ -81,13 +81,19 @@ class RandomGridWorld(GridWorld):
     def __init__(self):
         self.possible_choice = [2, 3, 4]
         self.renv_flag = random.choice(self.possible_choice)
+        self.fix_env = None
         super(RandomGridWorld, self).__init__(self.renv_flag)
 
     def reset(self):
-        self.renv_flag = random.choice(self.possible_choice)
-        self.env_flag = self.renv_flag
+        if self.fix_env is None:
+            self.renv_flag = random.choice(self.possible_choice)
+            self.env_flag = self.renv_flag
+        else:
+            self.renv_flag = self.env_flag = self.fix_env
         return super(RandomGridWorld, self).reset()
 
+    def set_fix_env(self, fix_env):
+        self.renv_flag = self.env_flag = self.fix_env = fix_env
 
 if __name__ == '__main__':
     grid_world = RandomGridWorld()
