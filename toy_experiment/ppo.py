@@ -10,9 +10,10 @@ import numpy as np
 
 
 class PPO:
-    def __init__(self, use_fc=False):
+    def __init__(self, use_fc=False, use_context=False):
         self.use_fc = use_fc
-        self.env = RandomGridWorld()
+        self.env = RandomGridWorld(append_context=use_context)
+        print('env observation dim: {} env act dim: {}'.format(self.env.state_space, self.env.action_space))
         self.policy = Policy(self.env.state_space, 1, use_fc)
         self.value = Value(self.env.state_space, 1, use_fc)
         self.policy_optim = torch.optim.Adam(self.policy.network.parameters(True), lr=3e-4)
@@ -21,7 +22,7 @@ class PPO:
         self.gamma = 0.99
         self.lam = 0.97
         self.clip_param = 0.1
-        self.ent_coeff = 1e-1
+        self.ent_coeff = 1e-4
         self.policy.network.to(self.device)
         self.value.network.to(self.device)
 
@@ -29,14 +30,14 @@ class PPO:
         reward = [item[3] for item in traj]
         value = [item[5] for item in traj]
         done = [item[4] for item in traj]
-        gae, returns = self._get_gae(reward, done, value)
+        returns, gae = self._get_gae(reward, done, value)
         return gae, returns
 
     def _get_gae(self, rewards, done, values):
         returns = [0] * len(rewards)
         advants = [0] * len(rewards)
         masks = [1 - d for d in done]
-
+        assert not masks[-1]
         running_returns = 0
         previous_value = 0
         running_advants = 0

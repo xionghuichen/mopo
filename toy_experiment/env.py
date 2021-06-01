@@ -4,7 +4,7 @@ import gym
 
 
 class GridWorld(gym.Env):
-    def __init__(self, env_flag=2):
+    def __init__(self, env_flag=2, append_context=False):
         super(gym.Env).__init__()
         # A, B, C, s_0, D
         # At s0, we can choose to go to (A, B, C) or D (2 dim. action)
@@ -13,9 +13,10 @@ class GridWorld(gym.Env):
         self.action_space = gym.spaces.Discrete(2)
         self.observation_space = None
         self._grid_escape_time = 0
-        self._grid_max_time = 100
+        self._grid_max_time = 50
         self._current_position = 0
         self.env_flag = env_flag
+        self.append_context = append_context
         self.middle_state = [2, 3, 4]
         assert self.env_flag in self.middle_state, '{} is accepted.'.format(self.middle_state)
         self._ind_to_name = {
@@ -27,15 +28,27 @@ class GridWorld(gym.Env):
         }
         self.reward_setting = {
             0: 0,
-            1: 0,
-            2: 10,
+            1: 1,
+            2: 30,
             3: -10,
-            4: 5
+            4: 0
         }
+        for k in self.reward_setting:
+            self.reward_setting[k] *= 0.01
+
         self.state_space = len(self.reward_setting)
+        self._raw_state_length = self.state_space
+        if self.append_context:
+            self.state_space += len(self.middle_state)
+
+    @property
+    def middle_state_embedding(self):
+        v = [0] * len(self.middle_state)
+        v[self.env_flag - 2] = 1
+        return v
 
     def make_one_hot(self, state):
-        vec = [0] * self.state_space
+        vec = [0] * self._raw_state_length
         vec[state] = 1
         return vec
 
@@ -49,27 +62,31 @@ class GridWorld(gym.Env):
             else:
                 # to unknown position
                 next_state = self.env_flag
-        elif self._current_position == 1:
-            # keep at D
-            next_state = 1
-        elif self._current_position in self.middle_state:
+        # elif self._current_position == 1:
+        #     # keep at D
+        #     next_state = 1
+        elif self._current_position in self.middle_state + [1]:
             # to s0
             next_state = 0
         else:
             raise NotImplementedError('current position exceeds range!!!')
-        done = next_state == 1
-        if self._grid_escape_time > self._grid_max_time:
+        done = False # next_state == 1
+        if self._grid_escape_time >= self._grid_max_time:
             done = True
         reward = self.reward_setting[next_state]
         info['current_position'] = self._ind_to_name[next_state]
         next_state_vector = self.make_one_hot(next_state)
         self._current_position = next_state
+        if self.append_context:
+            next_state_vector += self.middle_state_embedding
         return next_state_vector, reward, done, info
 
     def reset(self):
         self._grid_escape_time = 0
         self._current_position = 0
         state = self.make_one_hot(self._current_position)
+        if self.append_context:
+            state += self.middle_state_embedding
         return state
 
     def seed(self, seed=None):
@@ -78,11 +95,11 @@ class GridWorld(gym.Env):
 
 
 class RandomGridWorld(GridWorld):
-    def __init__(self):
+    def __init__(self, append_context=False):
         self.possible_choice = [2, 3, 4]
         self.renv_flag = random.choice(self.possible_choice)
         self.fix_env = None
-        super(RandomGridWorld, self).__init__(self.renv_flag)
+        super(RandomGridWorld, self).__init__(self.renv_flag, append_context)
 
     def reset(self):
         if self.fix_env is None:
