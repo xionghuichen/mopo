@@ -1,4 +1,5 @@
 import os.path
+import random
 
 import torch
 
@@ -11,16 +12,18 @@ import numpy as np
 import gym
 
 class PPO:
-    def __init__(self, use_fc=False, use_context=False, discrete=True):
+    def __init__(self, use_fc=False, use_context=False, discrete=True, seed=1):
         self.use_fc = use_fc
         self.discrete = discrete
         self.use_context = use_context
+        self.seed = seed
         if self.discrete:
             self.env = RandomGridWorld(append_context=use_context)
             state_dim = self.env.state_space
         else:
             self.env = gym.make('HalfCheetah-v2')
             state_dim = self.env.observation_space.shape[0]
+        self.seed_global_seed(seed)
 
         print('env observation dim: {} env act dim: {}'.format(state_dim, self.env.action_space))
         policy_arch = Policy if self.discrete else PolicyCont
@@ -35,6 +38,13 @@ class PPO:
         self.ent_coeff = 0.0
         self.policy.network.to(self.device)
         self.value.network.to(self.device)
+
+    def seed_global_seed(self, seed):
+        random.seed(seed)
+        np.random.seed(seed)
+        self.env.seed(seed)
+        torch.manual_seed(seed)
+        self.env.action_space.seed(seed)
 
     def get_gaes(self, traj):
         reward = [item[3] for item in traj]
@@ -222,8 +232,7 @@ class PPO:
     @property
     def model_path(self):
         base_path = os.path.dirname(os.path.abspath(__file__))
-        path = os.path.join(base_path, str(not self.use_fc).lower() + '_' + str(self.use_context), 'policy.pt')
-
+        path = os.path.join(base_path, 'log', str(not self.use_fc).lower() + '_' + str(self.use_context).lower() + '_' + str(self.seed), 'policy.pt')
         return path
 
     def save(self):

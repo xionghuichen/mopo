@@ -90,7 +90,6 @@ class GridWorld(gym.Env):
         return state
 
     def seed(self, seed=None):
-        super(gym.Env).seed(seed)
         self.action_space.seed(seed)
 
 
