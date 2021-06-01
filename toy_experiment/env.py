@@ -13,7 +13,7 @@ class GridWorld(gym.Env):
         self.action_space = gym.spaces.Discrete(2)
         self.observation_space = None
         self._grid_escape_time = 0
-        self._grid_max_time = 50
+        self._grid_max_time = 10
         self._current_position = 0
         self.env_flag = env_flag
         self.append_context = append_context
@@ -29,12 +29,12 @@ class GridWorld(gym.Env):
         self.reward_setting = {
             0: 0,
             1: 1,
-            2: 30,
-            3: -10,
+            2: 10,
+            3: -5,
             4: 0
         }
         for k in self.reward_setting:
-            self.reward_setting[k] *= 0.01
+            self.reward_setting[k] *= 1.0
 
         self.state_space = len(self.reward_setting)
         self._raw_state_length = self.state_space

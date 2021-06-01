@@ -6,6 +6,8 @@ def arg_parse():
     parser.add_argument('--adapt', action='store_true')
     parser.add_argument('--test', action='store_true')
     parser.add_argument('--context', action='store_true')
+    parser.add_argument('--mujoco', action='store_true')
+
 
     return parser.parse_args()
 
@@ -14,7 +16,7 @@ if __name__ == '__main__':
     print('use rnn: {}\ntest mode: {}\nuse context: {}'.format(
         args.adapt, args.test, args.context
     ))
-    ppo = PPO(not args.adapt, args.context)
+    ppo = PPO(not args.adapt, args.context, not args.mujoco)
     if args.test:
         ppo.test()
     else:
