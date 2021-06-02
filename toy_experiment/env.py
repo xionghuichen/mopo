@@ -30,7 +30,7 @@ class GridWorld(gym.Env):
             0: 0,
             1: 1,
             2: 10,
-            3: -5,
+            3: -10,
             4: 0
         }
         for k in self.reward_setting:
