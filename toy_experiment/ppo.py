@@ -10,6 +10,8 @@ from value import Value
 from replay_memory import MemoryNp
 import numpy as np
 import gym
+from log_util.logger import Logger
+
 
 class PPO:
     def __init__(self, use_fc=False, use_context=False, discrete=True, seed=1):
@@ -25,7 +27,6 @@ class PPO:
             state_dim = self.env.observation_space.shape[0]
         self.seed_global_seed(seed)
 
-        print('env observation dim: {} env act dim: {}'.format(state_dim, self.env.action_space))
         policy_arch = Policy if self.discrete else PolicyCont
         self.policy = policy_arch(state_dim, 1 if self.discrete else self.env.action_space.shape[0], use_fc)
         self.value = Value(state_dim, 1, True)
@@ -38,6 +39,10 @@ class PPO:
         self.ent_coeff = 0.0
         self.policy.network.to(self.device)
         self.value.network.to(self.device)
+        self.logger = Logger(short_name=self.short_name)
+        self.logger('env observation dim: {} env act dim: {}'.format(state_dim, self.env.action_space))
+
+
 
     def seed_global_seed(self, seed):
         random.seed(seed)
@@ -180,7 +185,7 @@ class PPO:
             self.value_optim.step()
             value_losses.append(value_loss.item())
             # policy_out = pol
-        print('actor loss: {}, critic loss: {}, entropy: {}, '
+        self.logger('actor loss: {}, critic loss: {}, entropy: {}, '
               'gae_mean: {}, gae_std: {}, return_mean: {}, '
               'return std: {}'.format(np.mean(actor_losses),
                                        np.mean(value_losses),
@@ -189,16 +194,26 @@ class PPO:
                                        gae_std,
                                        return_mean,
                                        return_std))
+        self.logger.log_tabular('actor_loss', np.mean(actor_losses))
+        self.logger.log_tabular('critic_loss', np.mean(value_losses))
+        self.logger.log_tabular('entropy', np.mean(entropies))
+        self.logger.log_tabular('gae_mean', gae_mean)
+        self.logger.log_tabular('gae_std', gae_std)
+        self.logger.log_tabular('return_mean', return_mean)
+        self.logger.log_tabular('return_std', return_std)
 
     def run(self):
         for iter in range(100):
-            print('-'*15+str(iter)+'-'*15+'rnn:{}'.format(not self.use_fc))
+            self.logger.log_tabular('iteration', iter)
+            self.logger('-'*15+str(iter)+'-'*15+'rnn:{}'.format(not self.use_fc))
             mem = self.sample(10000)
-            print('rets: ', np.mean(mem.rets), 'num: ', mem.size, 'traj num:', len(mem.memory_buffer))
+            self.logger('rets: ', np.mean(mem.rets), 'num: ', mem.size, 'traj num:', len(mem.memory_buffer))
+            self.logger.log_tabular('Ret', np.mean(mem.rets))
             self.train(mem, batch_size=4000, batch_num=50)
             if self.discrete:
                 self.test(load=False)
             self.save()
+            self.logger.dump_tabular()
 
     def get_trajectory_illustration(self, state, next_state):
         state = np.vstack([state, next_state[-1:]])
@@ -225,14 +240,22 @@ class PPO:
             self.env.set_fix_env(env)
             mem = self.sample(1, 30000, True)
             trajs, transition_num = mem.sample_trajs(1)
-            print('env_id: {}'.format(env), ', rets: ', np.mean(mem.rets), 'num: ', mem.size, ', aver len: ', mem.size / len(mem.memory_buffer))
-            print(self.get_trajectory_illustration(trajs.state[0], trajs.next_state[0]))
+            self.logger('env_id: {}'.format(env), ', rets: ', np.mean(mem.rets), 'num: ', mem.size, ', aver len: ', mem.size / len(mem.memory_buffer))
+            self.logger(self.get_trajectory_illustration(trajs.state[0], trajs.next_state[0]))
+            self.logger.log_tabular('ret_test_env_{}'.format(env), np.mean(mem.rets))
         self.env.set_fix_env(None)
+
+    @property
+    def short_name(self):
+        net = 'mlp' if self.use_fc else 'rnn'
+        use_context = 'context_' if self.use_context else ''
+
+        return net + '_' + use_context + str(self.seed)
 
     @property
     def model_path(self):
         base_path = os.path.dirname(os.path.abspath(__file__))
-        path = os.path.join(base_path, 'log', str(not self.use_fc).lower() + '_' + str(self.use_context).lower() + '_' + str(self.seed), 'policy.pt')
+        path = os.path.join(base_path, 'log', self.short_name, 'policy.pt')
         return path
 
     def save(self):

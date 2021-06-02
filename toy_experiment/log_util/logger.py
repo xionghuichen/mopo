@@ -1,4 +1,4 @@
-from logger_base import LoggerBase, get_base_path, system
+from .logger_base import LoggerBase, get_base_path, system
 import os
 import numpy as np
 import time
