@@ -1,8 +1,0 @@
-Logging data to /Users/fanmingluo/Code/py/mopo/gridworld_experiment/log/mlp_1/progress.txt
-my output path is /Users/fanmingluo/Code/py/mopo/gridworld_experiment/log/mlp_1
-Warning: Log dir /Users/fanmingluo/Code/py/mopo/gridworld_experiment/log/mlp_1 already exists! Storing info there anyway.
-rm -rf /Users/fanmingluo/Code/py/mopo/gridworld_experiment/log/mlp_1/events.out.tfevents*
-env observation dim: 6 env act dim: Discrete(5)
----------------0---------------rnn:False
-rets:  1.7731134432783608 num:  20010 traj num: 2001
-actor loss: -0.013868518764793407, critic loss: 510.6197875976562, entropy: 1.5982628083229065, gae_mean: 1.0947001422057754, gae_std: 21.10683572626677, return_mean: 0.8656369267247462, return std: 22.519813679312126
