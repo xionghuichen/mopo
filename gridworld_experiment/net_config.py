@@ -18,5 +18,5 @@ ep_config = {
 mlp_ep_config = {
     'hidden_size_list': [32],
     'activation': ['tanh', 'tanh'],
-    'layer_type': ['fc', 'gru']
+    'layer_type': ['fc', 'fc']
 }

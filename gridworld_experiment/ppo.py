@@ -11,7 +11,7 @@ from replay_memory import MemoryNp
 import numpy as np
 import gym
 from log_util.logger import Logger
-
+import matplotlib.pyplot as plt
 
 class PPO:
     def __init__(self, use_fc=False, use_context=False, discrete=True, seed=1):
@@ -210,7 +210,7 @@ class PPO:
             self.logger.log_tabular('Ret', np.mean(mem.rets))
             self.train(mem, batch_size=4000, batch_num=50)
             if self.discrete:
-                self.test(load=False)
+                self.test(load=False, iter=iter)
             self.save()
             self.logger.dump_tabular()
 
@@ -232,13 +232,34 @@ class PPO:
             state_str = state_str[:18] + '...' + state_str[-8:]
         return state_str
 
-    def test(self, load=True):
+    def get_ep(self, state):
+        hidden = self.policy.make_init_hidden(1, device=self.device)
+        action, hidden, ep = self.policy.get_action(torch.from_numpy(state).to(device=self.device, dtype=torch.get_default_dtype()), hidden, True)
+        ep = ep.detach().cpu().numpy()
+        return ep
+
+    def visualize_repre_filtered(self, ep):
+        fig = plt.figure(0)
+        plt.cla()
+        for ind in range(ep.shape[0]):
+            x = ep[ind, 0]
+            y = ep[ind, 1]
+            plt.scatter(x, y)
+        plt.xlim(left=-1.1, right=1.1)
+        plt.ylim(bottom=-1.1, top=1.1)
+        return fig
+
+    def test(self, load=True, iter=0):
         if load:
             self.load()
         for env in [2, 3, 4]:
             self.env.set_fix_env(env)
             mem = self.sample(1, 30000, True)
             trajs, transition_num = mem.sample_trajs(1)
+            ep = self.get_ep(trajs.state[0])
+            fig = self.visualize_repre_filtered(ep)
+            self.logger.tb.add_figure('figs/repre_env{}'.format(env), fig, iter)
+            print('ep shape: {}'.format(ep.shape))
             self.logger('env_id: {}'.format(env), ', rets: ', np.mean(mem.rets), 'num: ', mem.size, ', aver len: ', mem.size / len(mem.memory_buffer))
             self.logger(self.get_trajectory_illustration(trajs.state[0], trajs.next_state[0]))
             self.logger.log_tabular('ret_test_env_{}'.format(env), np.mean(mem.rets))

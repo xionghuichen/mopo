@@ -1,6 +1,5 @@
 from collections import namedtuple
 import random
-from sklearn.neighbors import KernelDensity
 import numpy as np
 import pickle
 import time

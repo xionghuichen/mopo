@@ -104,7 +104,7 @@ class GridWorld(gym.Env):
             return self._current_position
         left_up_map = {
             4: 0,
-            2: 5
+            # 2: 5
         }
         action_transition_mapping = \
         {

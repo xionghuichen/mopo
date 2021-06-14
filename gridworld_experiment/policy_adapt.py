@@ -28,10 +28,12 @@ class Policy:
         self.network.load(path, **kwargs)
         self.network.load(path+'ep', **kwargs)
 
-    def get_action(self, state, hidden):
+    def get_action(self, state, hidden, need_ep=False):
         ep, next_hidden = self.ep.meta_forward(state, hidden)
         prediction, _ = self.network.meta_forward(torch.cat((state, ep), -1), [])
         prediction = torch.softmax(prediction, dim=-1)
+        if need_ep:
+            return prediction, next_hidden, ep
         return prediction, next_hidden
 
     def make_init_action(self, device=torch.device('cpu')):
