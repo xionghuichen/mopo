@@ -1,0 +1,6 @@
+Logging data to /Users/fanmingluo/Code/py/mopo/gridworld_experiment/log/mlp_1/progress.txt
+my output path is /Users/fanmingluo/Code/py/mopo/gridworld_experiment/log/mlp_1
+Warning: Log dir /Users/fanmingluo/Code/py/mopo/gridworld_experiment/log/mlp_1 already exists! Storing info there anyway.
+rm -rf /Users/fanmingluo/Code/py/mopo/gridworld_experiment/log/mlp_1/events.out.tfevents*
+env observation dim: 6 env act dim: Discrete(5)
+---------------0---------------rnn:False

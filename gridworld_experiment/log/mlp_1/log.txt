@@ -1,0 +1,54 @@
+Logging data to /Users/fanmingluo/Code/py/mopo/gridworld_experiment/log/mlp_1/progress.txt
+my output path is /Users/fanmingluo/Code/py/mopo/gridworld_experiment/log/mlp_1
+Warning: Log dir /Users/fanmingluo/Code/py/mopo/gridworld_experiment/log/mlp_1 already exists! Storing info there anyway.
+rm -rf /Users/fanmingluo/Code/py/mopo/gridworld_experiment/log/mlp_1/events.out.tfevents*
+env observation dim: 6 env act dim: Discrete(5)
+---------------0---------------rnn:False
+rets:  2.016991504247876 num:  20010 traj num: 2001
+actor loss: -0.0023089660817640833, critic loss: 297.2372787475586, entropy: 1.6063233971595765, gae_mean: 0.7570451300152833, gae_std: 16.432837488980578, return_mean: 1.0320573507765023, return std: 17.48656374589823
+env_id: 2 , rets:  10.0 num:  10 , aver len:  10.0
+s0->D->D->D->D->D-...>D->D->D
+env_id: 3 , rets:  10.0 num:  10 , aver len:  10.0
+s0->D->D->D->D->D-...>D->D->D
+env_id: 4 , rets:  10.0 num:  10 , aver len:  10.0
+s0->D->D->D->D->D-...>D->D->D
+-------------- iter 0 --------------
+|             Ret |            2.02 |
+|      actor_loss |        -0.00231 |
+|     critic_loss |             297 |
+|         entropy |            1.61 |
+|        gae_mean |           0.757 |
+|         gae_std |            16.4 |
+|       iteration |               0 |
+|  ret_test_env_2 |              10 |
+|  ret_test_env_3 |              10 |
+|  ret_test_env_4 |              10 |
+|     return_mean |            1.03 |
+|      return_std |            17.5 |
+-------------------------------------
+
+---------------1---------------rnn:False
+rets:  3.6171914042978512 num:  20010 traj num: 2001
+actor loss: -0.010345552448416128, critic loss: 245.44724670410156, entropy: 1.6017220425605774, gae_mean: 0.8531317419102414, gae_std: 15.009425770344958, return_mean: 1.8874417176314768, return std: 16.20356010371717
+env_id: 2 , rets:  10.0 num:  10 , aver len:  10.0
+s0->D->D->D->D->D-...>D->D->D
+env_id: 3 , rets:  10.0 num:  10 , aver len:  10.0
+s0->D->D->D->D->D-...>D->D->D
+env_id: 4 , rets:  10.0 num:  10 , aver len:  10.0
+s0->D->D->D->D->D-...>D->D->D
+-------------- iter 1 --------------
+|             Ret |            3.62 |
+|      actor_loss |         -0.0103 |
+|     critic_loss |             245 |
+|         entropy |             1.6 |
+|        gae_mean |           0.853 |
+|         gae_std |              15 |
+|       iteration |               1 |
+|  ret_test_env_2 |              10 |
+|  ret_test_env_3 |              10 |
+|  ret_test_env_4 |              10 |
+|     return_mean |            1.89 |
+|      return_std |            16.2 |
+-------------------------------------
+
+---------------2---------------rnn:False
